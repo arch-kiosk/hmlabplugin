@@ -1,8 +1,8 @@
-# 💼 The Office
+# **🧩** hm lab plugin
  
-## 🤸🏿👽🕵️ This repository is for people 🤸🤖🎅
+## A plugin to build and study Kiosk's Harris Matrix component
 
-No matter for which field-project or which part of the software, it is here and only here in this repository where we all collaborate, report bugs and ideas, discuss ...
+In the end the component will show Harris Matrices where ever they make sense in Kiosk, especially in Query & View, but in this plugin it is easier to play around and study them.
 
 ## typical workplaces
 - 🧪 [testers work here](https://github.com/arch-kiosk/arch-kiosk-office/projects/25)
