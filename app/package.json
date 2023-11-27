@@ -1,0 +1,55 @@
+{
+  "name": "hmlabapp",
+  "description": "Kiosk Harris Matrix Lab",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "main": "dist/hmlabapp.es.js",
+  "exports": {
+    ".": "./dist/hmlabapp.es.js"
+  },
+  "types": "types/my-element.d.ts",
+  "files": [
+    "dist",
+    "types"
+  ],
+  "keywords": [],
+  "author": "Lutz Klein",
+  "license": "AGPL-3.0",
+  "prettier": {
+    "semi": true,
+    "trailingComma": "all",
+    "singleQuote": false,
+    "printWidth": 120,
+    "tabWidth": 4
+  },
+  "scripts": {
+    "dev": "vite --host",
+    "test": "vitest",
+    "build": "tsc && vite build --emptyOutDir"
+  },
+  "dependencies": {
+    "@lit-labs/context": "^0.4.1",
+    "lit": "^2.6.1",
+    "nanoid": "^4.0.1",
+    "@viz-js/viz": "^3.2.3",
+    "dagre": "^0.8.5",
+    "fabric": "^5.3.0",
+    "luxon": "^3.4.4"
+  },
+  "devDependencies": {
+    "@types/ejs": "^3.1.1",
+    "@types/html-minifier-terser": "^7.0.0",
+    "@types/dagre": "^0.7.52",
+    "@types/fabric": "^5.3.0",
+    "@types/luxon": "^3.3.3",
+    "prettier": "^2.8.4",
+    "rollup-plugin-copy": "^3.4.0",
+    "sass": "^1.58.0",
+    "ts-node": "^10.9.1",
+    "typescript": "^4.9.3",
+    "vite": "^4.1.0",
+    "vite-plugin-html": "^3.2.0",
+    "vitest": "^0.34.5"
+  }
+}

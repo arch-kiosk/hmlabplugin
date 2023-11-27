@@ -1,0 +1,14 @@
+{% extends "kioskbasic.html" %} {% block links %}
+    <link rel="stylesheet"
+          href="{{ url_for('hmlab.static', filename='hmlabplugin.css') }}?v=1"/>{% endblock %}
+{% block title %}
+    <div id="subtitle-shadow">Kiosk</div>
+    <div id="subtitle">Harris Matrix Lab</div>
+{% endblock %}
+{% block body %}
+    <hmlab-app id="kiosk-app" showprogress="true"></hmlab-app>
+    <script type="module" crossorigin
+            src="{{ url_for('hmlab.static', filename='app/hmlabapp.js') }}"></script>
+    <script type="module" src="{{ url_for('static', filename='scripts/kioskapplib/kioskprodstarter.js') }}"></script>
+{% endblock %}
+{#<script src="../static/app/hmlab.es.js"></script>#}

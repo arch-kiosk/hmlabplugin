@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Kiosk Query & View</title>
+        <!--suppress HtmlUnknownTarget -->
+        <link rel="stylesheet" href="<%- VITE_KIOSK_BASE_URL %>static/styles.css" />
+        <link rel="stylesheet" href="<%- VITE_KIOSK_BASE_URL %>static/purecss/shoelace/light.css" />
+        <link rel="stylesheet" href="<%- VITE_KIOSK_BASE_URL %>static/kioskshoelacetheme.css" />
+        <% if ( VITE_MODE == "DEVELOPMENT") { %>
+        <!--        This section is to load things in the development environment
+                    that are naturally available in the kiosk environment -->
+        <% } %>
+        <style>
+            header {
+                background: lightgrey;
+                padding: 0.5em;
+                margin-bottom: 2em;
+            }
+        </style>
+    </head>
+    <body>
+        <hmlab-app id="kiosk-app" showprogress="true"></hmlab-app>
+    </body>
+    <script type="module" src="/src/app.ts"></script>
+    <script type="module" src="/kioskdevstarter.ts"></script>
+    <script>
+        // ui = document.querySelector("#kiosk-app")
+        // ui.addEventListener("select-image", (event) => {
+        //     console.log(`Selecting image ${event.detail}`)
+        // })
+    </script>
+    <!--suppress JSUnresolvedLibraryURL -->
+    <script src="http://localhost:5000/static/scripts/kiosklastscript.js"></script>
+</html>
