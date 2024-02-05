@@ -65,4 +65,9 @@
   --sl-font-size-large:	var(--font-size-h3);
 }
 
+hmlab-app {
+  height: max-content;
+  width: max-content;
+}
+
 /*# sourceMappingURL=hmlabplugin.css.map */

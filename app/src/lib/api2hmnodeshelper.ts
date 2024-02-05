@@ -24,7 +24,6 @@ export function api2HmNodes(apiData: ApiResultLocusRelations) {
         try {
             chronType = apiRecord[chronFieldIdx].toLowerCase()
         } catch (e) {
-
             switch (apiRecord[relationTypeFieldIdx]) {
                 case "abuts": chronType = "later";break;
                 case "cuts through": chronType = "later";break;
@@ -34,7 +33,7 @@ export function api2HmNodes(apiData: ApiResultLocusRelations) {
                 case "below": chronType = "earlier";break;
                 case "bonds with": chronType = "same time as";break;
                 case "is abutted by": chronType = "earlier";break;
-                case "is adjacent to": chronType = "same time as";break;
+                case "is adjacent to": chronType = "";break;
                 default: console.error(`Can't read chron type for locus ${locusUID}. And I don't understand the relation type ${apiRecord[relationTypeFieldIdx]}`)
             }
         }

@@ -8,7 +8,8 @@
         <link rel="stylesheet" href="<%- VITE_KIOSK_BASE_URL %>static/styles.css" />
         <link rel="stylesheet" href="<%- VITE_KIOSK_BASE_URL %>static/purecss/shoelace/light.css" />
         <link rel="stylesheet" href="<%- VITE_KIOSK_BASE_URL %>static/kioskshoelacetheme.css" />
-        <% if ( VITE_MODE == "DEVELOPMENT") { %>
+
+            <% if ( VITE_MODE == "DEVELOPMENT") { %>
         <!--        This section is to load things in the development environment
                     that are naturally available in the kiosk environment -->
         <% } %>
@@ -18,10 +19,20 @@
                 padding: 0.5em;
                 margin-bottom: 2em;
             }
+            body {
+                height: 100vh;
+                width: 100vw;
+            }
+            hmlab-app {
+                display: block;
+                height: max-content;
+                width: max-content
+            }
         </style>
     </head>
     <body>
-        <hmlab-app id="kiosk-app" showprogress="true"></hmlab-app>
+
+    <hmlab-app id="kiosk-app" showprogress="true"></hmlab-app>
     </body>
     <script type="module" src="/src/app.ts"></script>
     <script type="module" src="/kioskdevstarter.ts"></script>
