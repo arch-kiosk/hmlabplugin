@@ -51,6 +51,8 @@ export class hmNode {
     public data: object | undefined;
     public dummyNode: boolean = false
     public inEdges: Array<HMEdge> = [];
+    public hasStraightIn: boolean = false;
+    public hasStraightOut: boolean = false;
     public outEdges: Array<HMEdge> = [];
     public hasImmediateLeftRelation = false;
     public leftContemporary: hmNode

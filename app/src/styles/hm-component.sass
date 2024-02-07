@@ -20,3 +20,28 @@ h1
 canvas
   position: relative
   //width: 50vw
+
+.messages-frame
+  display: flex
+  flex-direction: column
+  min-width: 400px
+.message
+  display: flex
+  padding: 1em
+  border-radius: 5px
+  i
+    font-size: $font-size-h3
+    margin-right: 1em
+.message-info
+  @extend .message
+  background-color: $col-bg-att
+  color: $col-primary-bg-att
+  max-width: 500px
+  i
+    color: $col-accent-bg-att
+.message-error
+  @extend .message
+  background-color: $col-bg-alert
+  color: $col-primary-bg-alert
+  i
+    color: $col-accent-bg-alert

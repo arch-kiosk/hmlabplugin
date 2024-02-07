@@ -105,9 +105,17 @@ export class HmLabApp extends KioskApp {
             },
             "v1",
             urlSearchParams)
-            .then((json: object) => {
-                console.log("relations fetched");
+            .then((json: ApiResultLocusRelations) => {
                 this.showProgress = false
+                console.log("relations fetched",json);
+                if (!json.hasOwnProperty('result') || !json.result) {
+                    this.addAppError("Kiosk reported an error for your request.")
+                    return
+                }
+                if (!json.hasOwnProperty('relations') || json.relations.length == 0) {
+                    this.addAppError("Kiosk did not come up with any stratigraphic data for your request.")
+                    return
+                }
                 this.relations = [...api2HmNodes(json as ApiResultLocusRelations)]
                 console.log(`relations fetched for ${obj.identifier}:`, this.relations)
             })

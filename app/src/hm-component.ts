@@ -1,4 +1,4 @@
-import { unsafeCSS, LitElement, PropertyValues } from "lit";
+import { unsafeCSS, LitElement, PropertyValues, nothing } from "lit";
 import { html } from "lit/static-html.js";
 import { customElement, property, state } from "lit/decorators.js";
 import { fabric } from "fabric";
@@ -58,18 +58,16 @@ type ContemporaryEdge = {
     row: number
 }
 
+type AppMessage = {
+    error: boolean,
+    message: string
+}
+
 
 @customElement("hm-component")
 export class HMComponent extends LitElement {
     static styles = unsafeCSS(local_css);
-    _messages: { [key: string]: object } = {};
-
-    @state()
-    dotNotation: string | null = null;
-
-    @property()
-    hmNodes: Array<hmNode> | null = null;
-
+    private _messages: Array<AppMessage> = []
     private hmGraph: Graph;
     private maxX?: number;
     private maxY?: number;
@@ -77,8 +75,9 @@ export class HMComponent extends LitElement {
     private nodeHeight = 40;
     private edgeWidth = 2;
     private edgeMargin = 2;
-    private laneWidth = this.edgeWidth + this.edgeMargin * 2;
-    private minColumnWidth = this.edgeWidth + this.edgeMargin * 2 * 3;
+    private inEdgeShift = 3
+    private laneWidth = this.edgeWidth + this.edgeMargin * 2 + this.inEdgeShift;
+    private minColumnWidth = this.laneWidth * 3;
     private minEdgeRowHeight = this.edgeWidth * this.edgeMargin * 2;
     private edgeRowBorderHeight = 10;
     private showDummyNodes: boolean = false;
@@ -95,11 +94,21 @@ export class HMComponent extends LitElement {
     private scrollBarWidth: number = 20; //That's just a fallback value
     private columnMargin: number = this.edgeMargin * 2;
     private fontHeight: number = 16; //That's just a falback value
+    private inErrorState = false
 
     // @property()
     scale: number = 1.0;
 
     private backgroundColor: RGBAColor;
+
+    @state()
+    dotNotation: string | null = null;
+
+    @property()
+    hmNodes: Array<hmNode> | null = null;
+
+    @property()
+    showErrors = true
 
     @property()
     layout: AnyDict = {
@@ -124,7 +133,6 @@ export class HMComponent extends LitElement {
 
     constructor() {
         super();
-        this._messages = {};
     }
 
     firstUpdated(_changedProperties: any) {
@@ -575,7 +583,9 @@ export class HMComponent extends LitElement {
         for (const r of rows) {
             console.log(r);
             this._adjustEdgeEndsForRow(nodeRows[currentNodeRow], "in");
-            r.forEach(edge => edge.outOrder = edge.extendsEdge ? edge.extendsEdge.inOrder : edge.outOrder);
+            r.forEach(edge => {
+                edge.outOrder = edge.extendsEdge ? edge.extendsEdge.inOrder : edge.outOrder
+            });
             console.log(r);
             const laneOrder = findBestHorizontalOrderForEdges(r);
             for (const order of laneOrder) {
@@ -668,7 +678,7 @@ export class HMComponent extends LitElement {
     }
 
     _getColumnSpace(maxLanes: number) {
-        return Math.max(this.minColumnWidth, maxLanes * (this.laneWidth + this.edgeMargin));
+        return Math.max(this.minColumnWidth, (maxLanes + 1) * (this.laneWidth));
     }
 
     _calculateMaxLanesPerRow() {
@@ -872,6 +882,10 @@ export class HMComponent extends LitElement {
     }
     protected willUpdate(_changedProperties: PropertyValues) {
         super.willUpdate(_changedProperties);
+        if (_changedProperties.has("dotNotation") && (this.dotNotation)) {
+            this.inErrorState  = false
+            this._messages = []
+        }
     }
 
     updated(_changedProperties: any) {
@@ -900,11 +914,28 @@ export class HMComponent extends LitElement {
         }
         if (_changedProperties.has("dotNotation") && (this.dotNotation)) {
             instance().then(viz => {
-                const svg = viz.renderSVGElement(this.dotNotation);
-                const json = viz.renderJSON(this.dotNotation);
-                console.log(json);
-                // this._paintSVG(svg.outerHTML);
-                this._renderJSON(json);
+                try {
+                    const svg = viz.renderSVGElement(this.dotNotation);
+                    const json = viz.renderJSON(this.dotNotation);
+                    if (!json.hasOwnProperty("objects")) {
+                        this._messages.push({
+                            error: true,
+                            message: `Cannot load the assigned stratigraphic relations.`
+                        })
+                        this.inErrorState = true
+                        this.requestUpdate()
+                        return;
+                    }
+                    console.log(json);
+                    // this._paintSVG(svg.outerHTML);
+                    this._renderJSON(json);
+                } catch (e) {
+                    this._messages.push({
+                        error: true,
+                        message: `The relations could not be processed: ${e}`
+                    })
+                    this.inErrorState = true
+                }
                 this._alignToCells();
                 this._findHorizontalAlignment();
                 this.hmNodes.sort((n1, n2) => (n1.pos.y == n2.pos.y) ? (n1.pos.x - n2.pos.x) : (n1.pos.y - n2.pos.y));
@@ -914,6 +945,7 @@ export class HMComponent extends LitElement {
                 this._calculateMatrix();
                 this._calcContemporaries();
                 this.calcFinalMaxDimensions();
+                this._markStraightEdges()
                 this._paintCanvas();
                 this._paintGraph();
             });
@@ -945,6 +977,18 @@ export class HMComponent extends LitElement {
         this.maxX = this.getPointX(this.maxX);
         this.maxY = this.getPointY(this.maxY);
     }
+    _markStraightEdges() {
+        for (let node of this.hmNodes) {
+            for (let edge of node.outEdges) {
+                if (this.columnInfo[edge.sourceNode.pos.x - 1].screenX == this.columnInfo[edge.targetNode.pos.x - 1].screenX) {
+                    console.log(` node ${edge.targetNode.name} has straight in`)
+                    edge.targetNode.hasStraightIn=true
+                    node.hasStraightOut=true
+                }
+            }
+        }
+    }
+
 
     _getHeight() {
         return this.maxY + this.scrollBarHeight;
@@ -1292,11 +1336,39 @@ export class HMComponent extends LitElement {
         }
 
         let lane = this.edgeRowBorderHeight + edge.lane * this.laneWidth;
-        let outPos = (edge.outOrder) * this.laneWidth + this.edgeMargin;
-        let inPos = (edge.inOrder) * this.laneWidth + this.edgeMargin;
+        let outPos = edge.outOrder * this.laneWidth + this.edgeMargin;
+        let inPos = edge.inOrder * this.laneWidth + this.edgeMargin;
         if (this.columnInfo[edge.sourceNode.pos.x - 1].screenX == this.columnInfo[edge.targetNode.pos.x - 1].screenX && outPos != inPos) {
             outPos = this.edgeMargin;
             inPos = this.edgeMargin;
+        }
+        if (origin[0] + outPos != target[0] + inPos && !edge.targetNode.dummyNode) {
+            if (edge.inOrder < 0) {
+                inPos -= this.inEdgeShift + 1;
+                if (!edge.targetNode.hasStraightIn) {
+                    inPos += this.laneWidth
+                    // edgeColor = "green"
+                }
+            } else if (edge.inOrder > 0) {
+                inPos += this.inEdgeShift + 1
+                if (!edge.targetNode.hasStraightIn) {
+                    inPos -= this.laneWidth
+                    // edgeColor = "red"
+                }
+            }
+        } else {
+            if (edge.targetNode.inEdges.length == 1 && !edge.targetNode.dummyNode) {
+                inPos = this.edgeMargin
+            }
+        }
+
+        if (origin[0] + outPos != target[0] + inPos && !edge.sourceNode.dummyNode && !edge.sourceNode.hasStraightOut) {
+            outPos += (edge.outOrder < 0) ? this.laneWidth * 0.5 : this.laneWidth * -0.5
+            // edgeColor = "orange"
+        } else {
+            if (edge.sourceNode.outEdges.length == 1 && !edge.sourceNode.dummyNode) {
+                outPos = this.edgeMargin
+            }
         }
         let points = [
             new fabric.Point(origin[0] + outPos, edge.dummyEdge ? dummy_start_y : origin[1]),
@@ -1415,13 +1487,12 @@ export class HMComponent extends LitElement {
         let origin = [this.getPointX(x), this.getPointY(y)];
         let halfHeight = this.nodeHeight * this.scale / 2;
         // let fill = this.moveMatrix[rowNr][colNr] ? "#00AA00" : "";
-        let fill = "";
         if (node.dummyNode) {
             if (this.showDummyNodes) {
                 this.canvas.add(new fabric.Rect({
                     left: origin[0],
                     top: origin[1],
-                    fill: fill,
+                    fill: "",
                     stroke: "lightgrey",
                     strokeWidth: 2,
                     width: this.columnInfo[colNr - 1].width,
@@ -1443,6 +1514,8 @@ export class HMComponent extends LitElement {
             return this.nodeWidth;
         } else {
             let group: Array<fabric.Object> = [];
+            let fill = RGBToHex(node != this.selectedNode ? this.nodeColor : this.nodeColorAccent)
+            // fill = node.hasStraightIn?"red":fill
             group.push(new fabric.Rect({
                 // left: origin[0],
                 // top: origin[1],
@@ -1450,7 +1523,7 @@ export class HMComponent extends LitElement {
                 // originY: "center",
                 left: 0,
                 top: 0,
-                fill: RGBToHex(node != this.selectedNode ? this.nodeColor : this.nodeColorAccent),
+                fill: fill,
                 stroke: RGBToHex(node != this.selectedNode ? this.nodeColorDarker : this.nodeColorAccent),
                 strokeWidth: 3,
                 width: this.nodeWidth * this.scale,
@@ -1544,18 +1617,34 @@ export class HMComponent extends LitElement {
         }
     }
 
+    renderMessages() {
+        return this._messages.length > 0?html`<div class="messages-frame">
+            ${this._messages.map(m => html`
+                <div class="${m.error?"message-error":"message-info"}">
+                    <i class="fas fa-bug"></i>
+                    <div>${m.message}</div>
+                </div>`)}            
+        </div>`:(this.inErrorState?html`<div class="messages-frame">
+            <div class="message-error">
+                <i class="fas fa-bug"></i>
+                <div>Some unknown error occured.</div>
+            </div>
+        </div>`:nothing)
+    }
+
     render() {
-        return html`
+        return this.inErrorState?this.renderMessages():html`
             <div id="scrollbar-calc"
                  style="background-color:red; height:50px;width:50px;overflow: scroll;visibility: hidden">
                 <div style="height:100px;width:100px"></div>
             </div>
             <div class="adjacent">
-                <div class="svg-div">
+                <!--div class="svg-div">
                     <div id="svg">
 
                     </div>
-                </div>
+                </div-->
+                ${this.renderMessages()}
                 <canvas id="c">
                 </canvas>
             </div>
