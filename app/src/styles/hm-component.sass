@@ -6,20 +6,31 @@
 \:host
   box-sizing: border-box
   display: block
+  outline: none
+  border: none
+  height: 100%
+
+//  &:focus
+//    outline: none
+//    border: none
+//canvas
+//  outline: none
+//  border: none
+//  &:active
+//    border: none
+//    outline: none
 h1
   font-family: monospace
 
 .adjacent
   display: flex
   flex-direction: row
-  position: relative
   background-color: unset
 .svg-div
   //width: 50vw
   position: relative
 canvas
   position: relative
-  //width: 50vw
 
 .messages-frame
   display: flex
@@ -45,3 +56,4 @@ canvas
   color: $col-primary-bg-alert
   i
     color: $col-accent-bg-alert
+

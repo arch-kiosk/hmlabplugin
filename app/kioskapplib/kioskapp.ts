@@ -1,5 +1,5 @@
 // import { html, css, LitElement } from '/node_modules/lit';
-import { html, LitElement, TemplateResult } from "lit";
+import { html, LitElement, nothing, TemplateResult } from "lit";
 import { API_STATE_ERROR, API_STATE_READY } from "./kioskapi";
 
 export abstract class KioskApp extends LitElement {
@@ -64,6 +64,9 @@ export abstract class KioskApp extends LitElement {
         return html`
             <style>
                 .system-message {
+                    display: flex;
+                    flex-direction: row;
+                    justify-content: space-between;
                     border-style: solid;
                     border-width: 2px;
                     padding: 2px 1em;
@@ -71,6 +74,9 @@ export abstract class KioskApp extends LitElement {
                     margin-bottom: 10px;
                     background: linear-gradient(135deg, #882501, #bb3302);
                     color: #fabc02;
+                }
+                .system-message i {
+                    
                 }
                 .loading {
                     display: flex;
@@ -119,15 +125,13 @@ export abstract class KioskApp extends LitElement {
         return undefined;
     }
 
-    renderErrors(): TemplateResult {
-        if (this.appErrors.length > 0) {
-            return html` ${this.appErrors.map((error) => html`<div class="system-message" @click="${this.errorClicked}">${error}</div>`)} `;
-        } else return undefined;
+    renderErrors(): TemplateResult | typeof nothing {
+            return this.appErrors.length > 0?html` ${this.appErrors.map((error) => html`<div class="system-message" @click="${this.errorClicked}"><span>${error}</span><i>x</i></div>`)} `:nothing
     }
 
     errorClicked(e: MouseEvent) {
-        console.log(e)
-        this.deleteError((<HTMLDivElement>e.target).textContent)
+        let text = (e.currentTarget as HTMLDivElement).children[0].textContent
+        this.deleteError(text)
     }
 
     renderProgress(force = false): TemplateResult {
@@ -140,6 +144,11 @@ export abstract class KioskApp extends LitElement {
 
     addAppError(error: string) {
         this.appErrors.push(error);
+        this.requestUpdate();
+    }
+
+    clearAppErrors() {
+        this.appErrors = []
         this.requestUpdate();
     }
 

@@ -67,7 +67,11 @@ type AppMessage = {
 @customElement("hm-component")
 export class HMComponent extends LitElement {
     static styles = unsafeCSS(local_css);
-    private _messages: Array<AppMessage> = []
+    static COLOR_STEPS: number = 10;
+    static MAX_ZOOM: number = 2;
+    static MIN_ZOOM: number = 0.2;
+
+    private _messages: Array<AppMessage> = [];
     private hmGraph: Graph;
     private maxX?: number;
     private maxY?: number;
@@ -75,7 +79,7 @@ export class HMComponent extends LitElement {
     private nodeHeight = 40;
     private edgeWidth = 2;
     private edgeMargin = 2;
-    private inEdgeShift = 3
+    private inEdgeShift = 3;
     private laneWidth = this.edgeWidth + this.edgeMargin * 2 + this.inEdgeShift;
     private minColumnWidth = this.laneWidth * 3;
     private minEdgeRowHeight = this.edgeWidth * this.edgeMargin * 2;
@@ -89,12 +93,12 @@ export class HMComponent extends LitElement {
     private nodeTextColor: RGBAColor;
     private nodeColorAccent: RGBAColor;
     private nodeAccentTextColor: RGBAColor;
-    static COLOR_STEPS: number = 10;
+
     private scrollBarHeight: number = 20; //That's just a fallback value
     private scrollBarWidth: number = 20; //That's just a fallback value
     private columnMargin: number = this.edgeMargin * 2;
     private fontHeight: number = 16; //That's just a falback value
-    private inErrorState = false
+    private inErrorState = false;
 
     // @property()
     scale: number = 1.0;
@@ -108,7 +112,10 @@ export class HMComponent extends LitElement {
     hmNodes: Array<hmNode> | null = null;
 
     @property()
-    showErrors = true
+    showErrors = true;
+
+    @property()
+    mouseMode = 0;  // 0 = hand, 1 = mover
 
     @property()
     layout: AnyDict = {
@@ -116,7 +123,7 @@ export class HMComponent extends LitElement {
         contemporaryEdges: true,
         multiColorEdges: true,
         multiColorSelection: false,
-        displayMode: "lightMode"
+        displayMode: "lightMode",
     };
 
     rows: Array<Array<HMEdge>> = [];
@@ -129,6 +136,12 @@ export class HMComponent extends LitElement {
     private edgeColorRange: Array<string>;
     private accentColorRange: Array<string>;
     private contemporaryEdges: Array<ContemporaryEdge> = [];
+    private isDragging: boolean = false;
+    private selection: boolean = false;
+    private lastPosX: number;
+    private lastPosY: number;
+    private parentWidth: number;
+    private parentHeight: number;
 
 
     constructor() {
@@ -137,6 +150,11 @@ export class HMComponent extends LitElement {
 
     firstUpdated(_changedProperties: any) {
         super.firstUpdated(_changedProperties);
+    }
+
+    connectedCallback() {
+        super.connectedCallback();
+        this.addEventListener("keyup", this.keyPressed)
     }
 
     layoutOption(option: string, defaultValue: any): any {
@@ -148,33 +166,33 @@ export class HMComponent extends LitElement {
     }
 
     _getCSSColors() {
-        let colorRange = 30
+        let colorRange = 30;
         this.backgroundColor = getCSSVarColor("--hm-col-bg-body", "--col-bg-body", this);
-        let lightness = RGBAToHSL([this.backgroundColor[0], this.backgroundColor[1], this.backgroundColor[2],1])[2]
+        let lightness = RGBAToHSL([this.backgroundColor[0], this.backgroundColor[1], this.backgroundColor[2], 1])[2];
         if (lightness < 50) {
             this.edgeColor = getCSSVarColor("--hm-col-primary-bg-body-dm", "--col-primary-bg-body-dm", this);
-            this.accentColor = getCSSVarColor("--hm-col-warning-bg-body-dm","--col-warning-bg-body-dm", this);
+            this.accentColor = getCSSVarColor("--hm-col-warning-bg-body-dm", "--col-warning-bg-body-dm", this);
         } else {
             this.edgeColor = getCSSVarColor("--hm-col-primary-bg-body", "--col-primary-bg-body", this);
-            this.accentColor = getCSSVarColor("--hm-col-warning-bg-body","--col-warning-bg-body", this);
-            colorRange = 50
+            this.accentColor = getCSSVarColor("--hm-col-warning-bg-body", "--col-warning-bg-body", this);
+            colorRange = 50;
         }
         if (this.layoutOption("multiColorEdges", true) && this.layoutOption("displayMode", "lightMode") !== "blackWhiteMode") {
             this.edgeColorRange = this._getHexColorRangeByBrightness(this.edgeColor, colorRange, HMComponent.COLOR_STEPS);
         } else {
-            this.edgeColorRange = [RGBAToHexA(this.edgeColor)]
+            this.edgeColorRange = [RGBAToHexA(this.edgeColor)];
         }
         if (this.layoutOption("multiColorSelection", true) && this.layoutOption("displayMode", "lightMode") !== "blackWhiteMode") {
             this.accentColorRange = this._getHexColorRangeByBrightness(this.accentColor, colorRange, HMComponent.COLOR_STEPS);
         } else {
-            this.accentColorRange = [RGBAToHexA(this.accentColor)]
+            this.accentColorRange = [RGBAToHexA(this.accentColor)];
         }
 
         this.nodeColor = getCSSVarColor("--hm-col-bg-1", "--col-bg-1", this);
-        this.nodeColorDarker = getCSSVarColor("--hm-col-bg-1-darker","--col-bg-1-darker", this);
-        this.nodeTextColor = getCSSVarColor("--hm-col-primary-bg-1","--col-primary-bg-1", this);
-        this.nodeColorAccent = getCSSVarColor("--hm-col-bg-att","--col-bg-att", this);
-        this.nodeAccentTextColor = getCSSVarColor("--hm-col-primary-bg-att","--col-primary-bg-att", this);
+        this.nodeColorDarker = getCSSVarColor("--hm-col-bg-1-darker", "--col-bg-1-darker", this);
+        this.nodeTextColor = getCSSVarColor("--hm-col-primary-bg-1", "--col-primary-bg-1", this);
+        this.nodeColorAccent = getCSSVarColor("--hm-col-bg-att", "--col-bg-att", this);
+        this.nodeAccentTextColor = getCSSVarColor("--hm-col-primary-bg-att", "--col-primary-bg-att", this);
     }
 
     /**
@@ -584,7 +602,7 @@ export class HMComponent extends LitElement {
             console.log(r);
             this._adjustEdgeEndsForRow(nodeRows[currentNodeRow], "in");
             r.forEach(edge => {
-                edge.outOrder = edge.extendsEdge ? edge.extendsEdge.inOrder : edge.outOrder
+                edge.outOrder = edge.extendsEdge ? edge.extendsEdge.inOrder : edge.outOrder;
             });
             console.log(r);
             const laneOrder = findBestHorizontalOrderForEdges(r);
@@ -837,11 +855,11 @@ export class HMComponent extends LitElement {
     }
 
     public refresh() {
-        this.requestUpdate("color", "")
+        this.requestUpdate("color", "");
     }
 
     public deSelect() {
-        if (this.selectedNode) this._selectNode()
+        if (this.selectedNode) this._selectNode();
     }
 
     _calculateLayout() {
@@ -880,17 +898,19 @@ export class HMComponent extends LitElement {
         this.maxCol = undefined;
         this.contemporaryEdges = [];
     }
+
     protected willUpdate(_changedProperties: PropertyValues) {
         super.willUpdate(_changedProperties);
         if (_changedProperties.has("dotNotation") && (this.dotNotation)) {
-            this.inErrorState  = false
-            this._messages = []
+            this.inErrorState = false;
+            this._messages = [];
         }
     }
 
     updated(_changedProperties: any) {
         console.log("hm-component update", _changedProperties);
         super.updated(_changedProperties);
+
         let scrollBarCheck = this.shadowRoot.getElementById("scrollbar-calc");
         if (scrollBarCheck && scrollBarCheck.style.display != "none") {
             if ((scrollBarCheck.offsetHeight - scrollBarCheck.clientHeight) > 0) {
@@ -920,10 +940,10 @@ export class HMComponent extends LitElement {
                     if (!json.hasOwnProperty("objects")) {
                         this._messages.push({
                             error: true,
-                            message: `Cannot load the assigned stratigraphic relations.`
-                        })
-                        this.inErrorState = true
-                        this.requestUpdate()
+                            message: `Cannot load the assigned stratigraphic relations.`,
+                        });
+                        this.inErrorState = true;
+                        this.requestUpdate();
                         return;
                     }
                     console.log(json);
@@ -932,9 +952,9 @@ export class HMComponent extends LitElement {
                 } catch (e) {
                     this._messages.push({
                         error: true,
-                        message: `The relations could not be processed: ${e}`
-                    })
-                    this.inErrorState = true
+                        message: `The relations could not be processed: ${e}`,
+                    });
+                    this.inErrorState = true;
                 }
                 this._alignToCells();
                 this._findHorizontalAlignment();
@@ -945,11 +965,24 @@ export class HMComponent extends LitElement {
                 this._calculateMatrix();
                 this._calcContemporaries();
                 this.calcFinalMaxDimensions();
-                this._markStraightEdges()
+                this._markStraightEdges();
                 this._paintCanvas();
                 this._paintGraph();
+                this._notifyUpdate();
             });
         }
+        if (_changedProperties.has("mouseMode")) {
+            if (this.canvas ) {
+                if (this.mouseMode == 0) this.canvas.defaultCursor = "pointer"
+                else {
+                    this.canvas.defaultCursor = "move"
+                    // this.canvas.hoverCursor = "move"
+                    // this.canvas.requestRenderAll()
+                    console.log("move cursor")
+                }
+            }
+        }
+
     }
 
     getPointX(x: number) {
@@ -977,13 +1010,14 @@ export class HMComponent extends LitElement {
         this.maxX = this.getPointX(this.maxX);
         this.maxY = this.getPointY(this.maxY);
     }
+
     _markStraightEdges() {
         for (let node of this.hmNodes) {
             for (let edge of node.outEdges) {
                 if (this.columnInfo[edge.sourceNode.pos.x - 1].screenX == this.columnInfo[edge.targetNode.pos.x - 1].screenX) {
-                    console.log(` node ${edge.targetNode.name} has straight in`)
-                    edge.targetNode.hasStraightIn=true
-                    node.hasStraightOut=true
+                    console.log(` node ${edge.targetNode.name} has straight in`);
+                    edge.targetNode.hasStraightIn = true;
+                    node.hasStraightOut = true;
                 }
             }
         }
@@ -998,24 +1032,173 @@ export class HMComponent extends LitElement {
         return this.maxX + this.scrollBarWidth;
     }
 
+    zoomIn() {
+        let zoom = this.canvas.getZoom();
+        console.log("zooming in")
+        zoom *= 1.1;
+        this.zoom(zoom);
+    }
+
+    zoomOut() {
+        let zoom = this.canvas.getZoom();
+        console.log("zooming out")
+        zoom *= 0.9;
+        this.zoom(zoom);
+    }
+
+    original() {
+        let vpt = this.canvas.viewportTransform;
+        vpt[4] = 1
+        vpt[5] = 1
+        this.canvas.setViewportTransform(this.canvas.viewportTransform);
+        this.zoom(1)
+    }
+
+    getZoom(): number {
+        if (this.canvas)
+            return this.canvas.getZoom()
+        else
+            return 0
+    }
+
+    zoomToFit() {
+        if (!this.canvas)
+            return
+        let cs = window.getComputedStyle(this)
+        let width = parseInt(cs.width)
+        let height = parseInt(cs.height)
+        if (Number.isNaN(width))
+            return
+        let ratio = Math.min(width / this.canvas.width, height / this.canvas.height)
+        ratio = width / this.canvas.width
+        if (ratio < 1) {
+            let vpt = this.canvas.viewportTransform;
+            vpt[4] = 1
+            vpt[5] = 1
+            this.canvas.setViewportTransform(this.canvas.viewportTransform);
+            console.log("zoomToFit", ratio)
+            this.zoom(ratio)
+        }
+    }
+
+    zoom(zoom: number, x = -1, y = -1) {
+        if (zoom > HMComponent.MAX_ZOOM) zoom = HMComponent.MAX_ZOOM;
+        if (zoom < HMComponent.MIN_ZOOM) zoom = HMComponent.MIN_ZOOM;
+        console.log(`zooming to ${zoom}`)
+        if (x == -1 || y == -1) {
+            this.canvas.setZoom(zoom);
+            this.canvas.requestRenderAll()
+        } else {
+            this.canvas.zoomToPoint({ x: x, y: y }, zoom);
+            // let vpt = this.canvas.viewportTransform
+            // if (zoom < 400 / 1000) {
+            //     vpt[4] = 200 - 1000 * zoom / 2;
+            //     vpt[5] = 200 - 1000 * zoom / 2;
+            // } else {
+            //     if (vpt[4] >= 0) {
+            //         vpt[4] = 0;
+            //     } else if (vpt[4] < this.canvas.getWidth() - 1000 * zoom) {
+            //         vpt[4] = this.canvas.getWidth() - 1000 * zoom;
+            //     }
+            //     if (vpt[5] >= 0) {
+            //         vpt[5] = 0;
+            //     } else if (vpt[5] < this.canvas.getHeight() - 1000 * zoom) {
+            //         vpt[5] = this.canvas.getHeight() - 1000 * zoom;
+            //     }
+            // }
+
+        }
+    }
+
+    keyPressed(e: KeyboardEvent) {
+            console.log("key", e)
+            if (e.target === this) {
+                if (e.key === "+") {
+                    this.zoomIn();
+                } else if (e.key === "-") {
+                    this.zoomOut();
+                } else if (e.key === "0") {
+                    this.original();
+                }
+
+                e.preventDefault();
+                e.stopPropagation();
+            }
+    }
+
+    _registerCanvasEvents() {
+        this.canvas.on("mouse:wheel", opt => {
+            let delta = opt.e.deltaY;
+            let zoom = this.canvas.getZoom();
+            let specialKey = opt.e.altKey || opt.e.ctrlKey
+            if (specialKey) {
+                zoom *= 0.999 ** delta;
+                this.zoom(zoom, opt.e.offsetX, opt.e.offsetY);
+                this.canvas.requestRenderAll()
+                opt.e.preventDefault();
+                opt.e.stopPropagation();
+            }
+        });
+        this.canvas.on('mouse:down', (opt) => {
+            let evt = opt.e;
+            let specialKey = evt.altKey || evt.ctrlKey
+            if ((specialKey && !(this.mouseMode == 1)) || (!specialKey && (this.mouseMode == 1))) {
+                this.isDragging = true;
+                this.selection = false;
+                this.lastPosX = evt.clientX;
+                this.lastPosY = evt.clientY;
+            } else {
+                if (!opt.target) {
+                    this._selectNode();
+                }
+            }
+        });
+        this.canvas.on('mouse:move', (opt) => {
+            if (this.isDragging) {
+                let e = opt.e;
+                let vpt = this.canvas.viewportTransform;
+                vpt[4] += e.clientX - this.lastPosX;
+                vpt[5] += e.clientY - this.lastPosY;
+                this.canvas.requestRenderAll();
+                this.lastPosX = e.clientX;
+                this.lastPosY = e.clientY;
+            }
+        });
+        this.canvas.on('mouse:up', (opt) => {
+            // on mouse up we want to recalculate new interaction
+            // for all objects, so we call setViewportTransform
+            if (this.isDragging) {
+                this.canvas.setViewportTransform(this.canvas.viewportTransform);
+                this.isDragging = false;
+                this.selection = true;
+            }
+        });
+    }
+
     _paintCanvas() {
         const el: HTMLCanvasElement = <HTMLCanvasElement>this.shadowRoot?.getElementById("c");
+        let oldviewportTransform: number[]
         this._getCSSColors();
         if (this.canvas) {
+            oldviewportTransform = this.canvas.viewportTransform
             this._disposeOfCanvas();
-            this.selectedNode = undefined
+            this.selectedNode = undefined;
         }
+        let cs = window.getComputedStyle(this.parentElement)
+        this.parentWidth = parseInt(cs.width)
+        this.parentHeight = parseInt(cs.height)
+
         this.canvas = new fabric.Canvas(el, {
             backgroundColor: RGBAToHexA(this.backgroundColor),
-            width: this._getWidth(),
-            height: this._getHeight(),
+            width: Math.max(this._getWidth(), this.parentWidth),
+            height: Math.max(this._getHeight() + this.nodeHeight, this.parentHeight),
             selection: false,
         });
-        this.canvas.on("mouse:down", (e) => {
-            if (!e.target) {
-                this._selectNode()
-            }
-        })
+        if (oldviewportTransform)
+            this.canvas.setViewportTransform(oldviewportTransform)
+
+        this._registerCanvasEvents();
+
         let ctx = this.canvas.getContext();
         ctx.font = "bold 16px serif";
         let metrics = ctx.measureText("´§QW,");
@@ -1051,7 +1234,7 @@ export class HMComponent extends LitElement {
         });
     }
 
-    private _recolorNodeEdges(node: hmNode, colorRange: Array<string>, toFront=false) {
+    private _recolorNodeEdges(node: hmNode, colorRange: Array<string>, toFront = false) {
         if (!node)
             return;
         let edges = this._findAllEdgesForNode(node);
@@ -1066,11 +1249,11 @@ export class HMComponent extends LitElement {
     }
 
     _getHexColorRangeByBrightness(baseColor: RGBAColor, range: number, steps: number) {
-        let a = RGBAToHSL(baseColor)[2]
-        let g = a/100
-        let c = range * g
-        let fromPercent = c * -1
-        let toPercent = range - c
+        let a = RGBAToHSL(baseColor)[2];
+        let g = a / 100;
+        let c = range * g;
+        let fromPercent = c * -1;
+        let toPercent = range - c;
         let percentStep = Math.trunc(toPercent - fromPercent) / steps;
         let result: Array<string> = [];
         for (let prc = fromPercent; prc < toPercent; prc += percentStep) {
@@ -1116,11 +1299,12 @@ export class HMComponent extends LitElement {
 
     }
 
-    nodeClicked(option: {e:MouseEvent, target:fabric.Group}) {
+    nodeClicked(option: { e: MouseEvent, target: fabric.Group }) {
         console.log("selected ", option.e);
         let group = option.target;
-        this._selectNode(group.data)
-        option.e.preventDefault()
+        this._selectNode(group.data);
+        this.focus()
+        option.e.preventDefault();
     }
 
     _findGroupForNode(node: hmNode) {
@@ -1319,7 +1503,7 @@ export class HMComponent extends LitElement {
         });
     }
 
-    _drawEdge(edge: HMEdge, colorRange: Array<string>, toFront=false) {
+    _drawEdge(edge: HMEdge, colorRange: Array<string>, toFront = false) {
         let strokeWidth = 2;
         let start_x = this.columnInfo[edge.sourceNode.pos.x - 1].screenX + this.columnInfo[edge.sourceNode.pos.x - 1].width / 2;
         let start_y = this.rowInfo[edge.sourceNode.pos.y - 1].screenY + this.rowInfo[edge.sourceNode.pos.y - 1].height + 1;
@@ -1346,28 +1530,28 @@ export class HMComponent extends LitElement {
             if (edge.inOrder < 0) {
                 inPos -= this.inEdgeShift + 1;
                 if (!edge.targetNode.hasStraightIn) {
-                    inPos += this.laneWidth
+                    inPos += this.laneWidth;
                     // edgeColor = "green"
                 }
             } else if (edge.inOrder > 0) {
-                inPos += this.inEdgeShift + 1
+                inPos += this.inEdgeShift + 1;
                 if (!edge.targetNode.hasStraightIn) {
-                    inPos -= this.laneWidth
+                    inPos -= this.laneWidth;
                     // edgeColor = "red"
                 }
             }
         } else {
             if (edge.targetNode.inEdges.length == 1 && !edge.targetNode.dummyNode) {
-                inPos = this.edgeMargin
+                inPos = this.edgeMargin;
             }
         }
 
         if (origin[0] + outPos != target[0] + inPos && !edge.sourceNode.dummyNode && !edge.sourceNode.hasStraightOut) {
-            outPos += (edge.outOrder < 0) ? this.laneWidth * 0.5 : this.laneWidth * -0.5
+            outPos += (edge.outOrder < 0) ? this.laneWidth * 0.5 : this.laneWidth * -0.5;
             // edgeColor = "orange"
         } else {
             if (edge.sourceNode.outEdges.length == 1 && !edge.sourceNode.dummyNode) {
-                outPos = this.edgeMargin
+                outPos = this.edgeMargin;
             }
         }
         let points = [
@@ -1385,7 +1569,7 @@ export class HMComponent extends LitElement {
             // height: 40 * this.scale,
             selectable: false,
             hoverCursor: "default",
-            evented: false
+            evented: false,
         });
 
         polyline.data = edge;
@@ -1514,7 +1698,7 @@ export class HMComponent extends LitElement {
             return this.nodeWidth;
         } else {
             let group: Array<fabric.Object> = [];
-            let fill = RGBToHex(node != this.selectedNode ? this.nodeColor : this.nodeColorAccent)
+            let fill = RGBToHex(node != this.selectedNode ? this.nodeColor : this.nodeColorAccent);
             // fill = node.hasStraightIn?"red":fill
             group.push(new fabric.Rect({
                 // left: origin[0],
@@ -1538,7 +1722,7 @@ export class HMComponent extends LitElement {
                 // top: origin[1],
                 left: 0,
                 top: this.nodeHeight * this.scale / 2 - this.fontHeight * this.scale / 2,
-                stroke: RGBToHex(node != this.selectedNode ? this.nodeTextColor: this.nodeAccentTextColor),
+                stroke: RGBToHex(node != this.selectedNode ? this.nodeTextColor : this.nodeAccentTextColor),
                 // originX: "center",
                 // originY: "center",
                 fontSize: 16,
@@ -1618,22 +1802,24 @@ export class HMComponent extends LitElement {
     }
 
     renderMessages() {
-        return this._messages.length > 0?html`<div class="messages-frame">
-            ${this._messages.map(m => html`
-                <div class="${m.error?"message-error":"message-info"}">
+        return this._messages.length > 0 ? html`
+            <div class="messages-frame">
+                ${this._messages.map(m => html`
+                    <div class="${m.error ? "message-error" : "message-info"}">
+                        <i class="fas fa-bug"></i>
+                        <div>${m.message}</div>
+                    </div>`)}
+            </div>` : (this.inErrorState ? html`
+            <div class="messages-frame">
+                <div class="message-error">
                     <i class="fas fa-bug"></i>
-                    <div>${m.message}</div>
-                </div>`)}            
-        </div>`:(this.inErrorState?html`<div class="messages-frame">
-            <div class="message-error">
-                <i class="fas fa-bug"></i>
-                <div>Some unknown error occured.</div>
-            </div>
-        </div>`:nothing)
+                    <div>Some unknown error occured.</div>
+                </div>
+            </div>` : nothing);
     }
 
     render() {
-        return this.inErrorState?this.renderMessages():html`
+        return this.inErrorState ? this.renderMessages() : html`
             <div id="scrollbar-calc"
                  style="background-color:red; height:50px;width:50px;overflow: scroll;visibility: hidden">
                 <div style="height:100px;width:100px"></div>
@@ -1651,5 +1837,11 @@ export class HMComponent extends LitElement {
         `;
     }
 
+    private _notifyUpdate() {
+        setTimeout(() => {
+            this.dispatchEvent(new CustomEvent("hm-repaint",
+                { bubbles: true, composed: true, detail: {} }));
+        },0)
+    }
 }
 

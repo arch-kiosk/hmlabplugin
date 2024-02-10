@@ -66,8 +66,8 @@
 }
 
 hmlab-app {
-  height: max-content;
-  width: max-content;
+  height: 100%;
+  width: 100%;
 }
 
 /*# sourceMappingURL=hmlabplugin.css.map */
