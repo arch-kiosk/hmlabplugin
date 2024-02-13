@@ -7,7 +7,7 @@ window.addEventListener("load", () => {
     registerDevRoutes(api)
     api.initApi()
         .catch((e) => {
-            console.log(`Exception when initializing: ${e}`);
+            console.log(`KioskDevStarter Exception when initializing`, e);
         })
         .finally(() => {
             let app: KioskApp = document.querySelector("#kiosk-app");

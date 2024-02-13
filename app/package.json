@@ -31,10 +31,13 @@
   "dependencies": {
     "@lit-labs/context": "^0.5.1",
     "@shoelace-style/shoelace": "^2.13.1",
+    "@vaadin/grid": "^24.2.6",
     "@viz-js/viz": "^3.2.3",
     "color-rgba": "^3.0.0",
     "dagre": "^0.8.5",
     "fabric": "^5.3.0",
+    "kiosktsapplib": "file:../../../../../../kiosktsapplib",
+    "kioskuicomponents": "file:../../../../../../kioskuicomponents",
     "lit": "^3.1.1",
     "luxon": "^3.4.4",
     "nanoid": "^4.0.1"

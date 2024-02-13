@@ -10,6 +10,7 @@
     "moduleResolution": "node",
     "experimentalDecorators": true,
     "allowSyntheticDefaultImports": true,
+//    "paths": {"kiosktsapplib": ["./node_modules/kiosktsapplib"]},
 //    "typeRoots": [
 //      "./node_modules/@types",
 //      "./types/common"

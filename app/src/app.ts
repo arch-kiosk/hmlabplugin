@@ -4,6 +4,8 @@ import { html, literal } from "lit/static-html.js";
 import { provide } from "@lit-labs/context";
 import { property, state } from "lit/decorators.js";
 import "./hm-component";
+import "kioskuicomponents"
+
 
 // import { SlDropdown } from "@shoelace-style/shoelace";
 
@@ -24,6 +26,8 @@ import "@shoelace-style/shoelace/dist/components/icon/icon.js";
 import "@shoelace-style/shoelace/dist/components/divider/divider.js";
 import { setBasePath } from "@shoelace-style/shoelace/dist/utilities/base-path.js";
 import { SlMenuItem } from "@shoelace-style/shoelace";
+import { KioskContextSelector } from "kioskuicomponents/kioskuicomponents";
+import { AnyDict, Constant, fetchConstants, getRecordTypeAliases } from "kiosktsapplib";
 
 setBasePath("/static/sl_assets");
 
@@ -59,6 +63,12 @@ export class HmLabApp extends KioskApp {
     @state()
     private arrowActive: boolean = true;
 
+    private constants: Constant[];
+
+    @state()
+    private recordTypeAliases: AnyDict = {};
+
+
     constructor() {
         super();
     }
@@ -70,9 +80,18 @@ export class HmLabApp extends KioskApp {
 
     apiConnected() {
         console.log("api is connected");
-        // this.fetchConstants();
+        fetchConstants(this.apiContext)
+            .then((constants) => {
+                this.constants = constants
+                this.recordTypeAliases = getRecordTypeAliases(this.constants)
+                console.log(`record type aliases fetched`,this.recordTypeAliases)
+            })
+            .catch((e: FetchException) => {
+                this.showProgress = false
+                // handleFetchError(msg)
+                handleCommonFetchErrors(this, e, "loadConstants");
+            });
     }
-
 
     protected reloadClicked(e: Event) {
         // let el = this.shadowRoot.getElementById("workstation-list")
@@ -170,13 +189,27 @@ export class HmLabApp extends KioskApp {
         }
     }
 
+    private selectorClosed(e: CustomEvent) {
+        if (e.detail.hasOwnProperty("identifier") && e.detail.hasOwnProperty("record_type")) {
+            this.loadMatrix(
+                {
+                    record_type: e.detail["record_type"],
+                    identifier: e.detail["identifier"],
+                });
+        }
+        console.log(e.detail)
+    }
+
     private goButtonClicked(event: MouseEvent) {
-        const identifier = (this.renderRoot.querySelector("#devIdentifier") as HTMLInputElement).value;
-        this.loadMatrix(
-            {
-                record_type: "unit",
-                identifier: identifier,
-            });
+        // const identifier = (this.renderRoot.querySelector("#devIdentifier") as HTMLInputElement).value;
+        // this.loadMatrix(
+        //     {
+        //         record_type: "unit",
+        //         identifier: identifier,
+        //     });
+        const selector: KioskContextSelector = this.shadowRoot.querySelector("kiosk-context-selector") as KioskContextSelector
+        selector.openDialog()
+
     }
 
     updated(_changedProperties: any) {
@@ -432,19 +465,32 @@ export class HmLabApp extends KioskApp {
                               data-identifier="stars"
                               data-table-name="-"
                               @click="${this.loadShortcut}">stars</span>
+                        <!--
                         <label for="identifier">unit:</label><input class="dev-open-identifier-input" id="devIdentifier"
                                                                     name="devIdentifier" type="text" />
-                        <button id="btGoto" @click="${this.goButtonClicked}">Go</button>
+                                                                    -->
+                        <div id="btGoto" class="toolbar-button light-background" @click="${this.goButtonClicked}">
+                            <i class="fas fa-circle-plus"></i>
+                        </div>
+                        <kiosk-context-selector 
+                            .apiContext="${this.apiContext}"
+                            @closeSelection="${this.selectorClosed}">
+                        </kiosk-context-selector>
                     </div>
                 </div>`;
         } else {
             dev = html`
                 <div>
                     <div class="dev-tool-bar">
-                        <label for="identifier">load unit:</label><input class="dev-open-identifier-input"
-                                                                         id="devIdentifier" name="devIdentifier"
-                                                                         type="text" />
-                        <button id="btGoto" @click="${this.goButtonClicked}">Go</button>
+                        <div id="btGoto" class="toolbar-button" @click="${this.goButtonClicked}">
+                            <i class="fas fa-circle-plus"></i>
+                        </div>
+                        <kiosk-context-selector
+                            .apiContext="${this.apiContext}"
+                            .recordTypeAliases="${this.recordTypeAliases}"
+                            .recordTypeFilter="${['unit','locus']}"
+                            @closeSelection="${this.selectorClosed}">
+                        </kiosk-context-selector>
                     </div>
                 </div>`;
 

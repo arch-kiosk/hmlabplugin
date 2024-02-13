@@ -18,11 +18,14 @@ export default defineConfig(({ command, mode }) => {
             //   hook: 'buildStart'
             // }),
         ],
+        // optimizeDeps: {
+        //     include: ['../../../../../../kiosktsapplib'],
+        // },
         esbuild:
             command == "build"
                 ? {
                       //No console.logs in the distribution
-                      drop: ["console", "debugger"],
+                      // drop: ["console", "debugger"],
                   }
                 : {},
         build: {
@@ -32,7 +35,7 @@ export default defineConfig(({ command, mode }) => {
                 formats: ["es"],
             },
             // rollupOptions: {
-            //   external: /^lit/,
+            //   external: ['@vaading'],
             // },
         },
         server: {
