@@ -1,6 +1,7 @@
 import { defineConfig, searchForWorkspaceRoot, loadEnv } from "vite";
 import { createHtmlPlugin } from "vite-plugin-html";
 import copy from "rollup-plugin-copy";
+import packageJson from './package.json';
 
 // noinspection JSUnusedGlobalSymbols
 export default defineConfig(({ command, mode }) => {
@@ -51,5 +52,8 @@ export default defineConfig(({ command, mode }) => {
                 ...env,
             },
         },
+        define: {
+            'import.meta.env.PACKAGE_VERSION': JSON.stringify(packageJson.version)
+        }
     };
 });

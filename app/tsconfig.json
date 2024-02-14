@@ -8,6 +8,7 @@
 //    "jsx": "react",
     "allowJs": true,
     "moduleResolution": "node",
+    "resolveJsonModule": true,
     "experimentalDecorators": true,
     "allowSyntheticDefaultImports": true,
 //    "paths": {"kiosktsapplib": ["./node_modules/kiosktsapplib"]},

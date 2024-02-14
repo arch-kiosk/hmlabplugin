@@ -228,30 +228,31 @@ export class HmLabApp extends KioskApp {
     setBackgroundMode(hm: HMComponent, mode: string) {
 
         let bgColor = mode === "darkMode" ? getCSSVar("--col-bg-body-dm") : (mode === "lightMode" ? getCSSVar("--col-bg-body") : "#ffffff");
-        hm.style.setProperty("background-color", "var(--hm-col-bg-body, var(--col-bg-body))");
+        hm.style.setProperty("background-color", "var(--col-bg-body))");
         this.style.setProperty("background-color", bgColor);
-        hm.style.setProperty("--hm-col-bg-body", bgColor);
+        hm.style.setProperty("--col-bg-body", bgColor);
         if (mode === "blackWhiteMode") {
-            hm.style.setProperty("--hm-col-accent-bg-body", "#000000");
-            hm.style.setProperty("--hm-col-primary-bg-body", "#000000");
-            hm.style.setProperty("--hm-col-warning-bg-body", "#000000");
-            hm.style.setProperty("--hm-col-bg-1", "#ffffff");
-            hm.style.setProperty("--hm-col-bg-1-darker", "#000000");
-            hm.style.setProperty("--hm-col-bg-1-lighter", "#ffffff");
-            hm.style.setProperty("--hm-col-primary-bg-1", "#000000");
-            hm.style.setProperty("--hm-col-bg-att", "#000000");
-            hm.style.setProperty("--hm-col-primary-bg-att", "#ffffff");
-        } else {
-            hm.style.setProperty("--hm-col-accent-bg-body", getCSSVar("--col-accent-bg-body"));
-            hm.style.setProperty("--hm-col-primary-bg-body", getCSSVar("--col-primary-bg-body"));
-            hm.style.setProperty("--hm-col-warning-bg-body", getCSSVar("--col-warning-bg-body"));
-            hm.style.setProperty("--hm-col-bg-1", getCSSVar("--col-bg-1"));
-            hm.style.setProperty("--hm-col-bg-1-darker", getCSSVar("--col-bg-1-darker"));
-            hm.style.setProperty("--hm-col-bg-1-lighter", getCSSVar("--col-bg-1-lighter"));
-            hm.style.setProperty("--hm-col-primary-bg-1", getCSSVar("--col-primary-bg-1"));
-            hm.style.setProperty("--hm-col-bg-att", getCSSVar("--col-bg-att"));
-            hm.style.setProperty("--hm-col-primary-bg-att", getCSSVar("--col-primary-bg-att"));
+            hm.style.setProperty("--col-accent-bg-body", "#000000");
+            hm.style.setProperty("--col-primary-bg-body", "#000000");
+            hm.style.setProperty("--col-warning-bg-body", "#000000");
+            hm.style.setProperty("--col-bg-1", "#ffffff");
+            hm.style.setProperty("--col-bg-1-darker", "#000000");
+            hm.style.setProperty("--col-bg-1-lighter", "#ffffff");
+            hm.style.setProperty("--col-primary-bg-1", "#000000");
+            hm.style.setProperty("--col-bg-att", "#000000");
+            hm.style.setProperty("--col-primary-bg-att", "#ffffff");
         }
+        // else {
+        //     hm.style.setProperty("--hm-col-accent-bg-body", getCSSVar("--col-accent-bg-body"));
+        //     hm.style.setProperty("--hm-col-primary-bg-body", getCSSVar("--col-primary-bg-body"));
+        //     hm.style.setProperty("--hm-col-warning-bg-body", getCSSVar("--col-warning-bg-body"));
+        //     hm.style.setProperty("--hm-col-bg-1", getCSSVar("--col-bg-1"));
+        //     hm.style.setProperty("--hm-col-bg-1-darker", getCSSVar("--col-bg-1-darker"));
+        //     hm.style.setProperty("--hm-col-bg-1-lighter", getCSSVar("--col-bg-1-lighter"));
+        //     hm.style.setProperty("--hm-col-primary-bg-1", getCSSVar("--col-primary-bg-1"));
+        //     hm.style.setProperty("--hm-col-bg-att", getCSSVar("--col-bg-att"));
+        //     hm.style.setProperty("--hm-col-primary-bg-att", getCSSVar("--col-primary-bg-att"));
+        // }
         ["darkMode", "lightMode", "blackWhiteMode"].forEach((m) => {
             (this.shadowRoot.querySelector(`sl-menu-item[data-option="${m}"]`) as SlMenuItem).checked = m === mode;
         });
@@ -476,6 +477,9 @@ export class HmLabApp extends KioskApp {
                             .apiContext="${this.apiContext}"
                             @closeSelection="${this.selectorClosed}">
                         </kiosk-context-selector>
+                        <div class="uicomponent-version">
+                            plugin v${html`${(import.meta as any).env.PACKAGE_VERSION}`}
+                        </div>
                     </div>
                 </div>`;
         } else {
@@ -491,9 +495,12 @@ export class HmLabApp extends KioskApp {
                             .recordTypeFilter="${['unit','locus']}"
                             @closeSelection="${this.selectorClosed}">
                         </kiosk-context-selector>
+                        <div class="uicomponent-version">
+                            plugin v${html`${(import.meta as any).env.PACKAGE_VERSION}`}
+                        </div>
+                        
                     </div>
                 </div>`;
-
         }
         let toolbar = this.renderToolbar();
         const app = html`${this.renderMatrix()}`;

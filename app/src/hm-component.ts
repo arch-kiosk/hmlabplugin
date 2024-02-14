@@ -23,7 +23,7 @@ import {
     RGBAColor,
     RGBToHex,
     RGBAToHexA,
-    hexToRGB, RGBStrToRGB, RGBToHSB, increase_lightness, RGBAToHSL,
+    hexToRGB, RGBStrToRGB, RGBToHSB, increase_lightness, RGBAToHSL, getCSSVar,
 } from "./lib/applib";
 import { AnyDict } from "./lib/hmlabtypes";
 
@@ -93,6 +93,8 @@ export class HMComponent extends LitElement {
     private nodeTextColor: RGBAColor;
     private nodeColorAccent: RGBAColor;
     private nodeAccentTextColor: RGBAColor;
+    private cssFontFamily: string;
+
 
     private scrollBarHeight: number = 20; //That's just a fallback value
     private scrollBarWidth: number = 20; //That's just a fallback value
@@ -165,16 +167,19 @@ export class HMComponent extends LitElement {
         return defaultValue;
     }
 
-    _getCSSColors() {
+    _getCSSSettings() {
         let colorRange = 30;
-        this.backgroundColor = getCSSVarColor("--hm-col-bg-body", "--col-bg-body", this);
+        this.backgroundColor = getCSSVarColor("--col-bg-body", this);
+        this.cssFontFamily = getCSSVar("--standard-text-font", this);
+        console.log(`using font ${this.cssFontFamily}`)
+
         let lightness = RGBAToHSL([this.backgroundColor[0], this.backgroundColor[1], this.backgroundColor[2], 1])[2];
         if (lightness < 50) {
-            this.edgeColor = getCSSVarColor("--hm-col-primary-bg-body-dm", "--col-primary-bg-body-dm", this);
-            this.accentColor = getCSSVarColor("--hm-col-warning-bg-body-dm", "--col-warning-bg-body-dm", this);
+            this.edgeColor = getCSSVarColor("--col-primary-bg-body-dm", this);
+            this.accentColor = getCSSVarColor("--col-warning-bg-body-dm", this);
         } else {
-            this.edgeColor = getCSSVarColor("--hm-col-primary-bg-body", "--col-primary-bg-body", this);
-            this.accentColor = getCSSVarColor("--hm-col-warning-bg-body", "--col-warning-bg-body", this);
+            this.edgeColor = getCSSVarColor("--col-primary-bg-body", this);
+            this.accentColor = getCSSVarColor("--col-warning-bg-body", this);
             colorRange = 50;
         }
         if (this.layoutOption("multiColorEdges", true) && this.layoutOption("displayMode", "lightMode") !== "blackWhiteMode") {
@@ -188,11 +193,11 @@ export class HMComponent extends LitElement {
             this.accentColorRange = [RGBAToHexA(this.accentColor)];
         }
 
-        this.nodeColor = getCSSVarColor("--hm-col-bg-1", "--col-bg-1", this);
-        this.nodeColorDarker = getCSSVarColor("--hm-col-bg-1-darker", "--col-bg-1-darker", this);
-        this.nodeTextColor = getCSSVarColor("--hm-col-primary-bg-1", "--col-primary-bg-1", this);
-        this.nodeColorAccent = getCSSVarColor("--hm-col-bg-att", "--col-bg-att", this);
-        this.nodeAccentTextColor = getCSSVarColor("--hm-col-primary-bg-att", "--col-primary-bg-att", this);
+        this.nodeColor = getCSSVarColor("--col-bg-1", this);
+        this.nodeColorDarker = getCSSVarColor("--col-bg-1-darker", this);
+        this.nodeTextColor = getCSSVarColor("--col-primary-bg-1", this);
+        this.nodeColorAccent = getCSSVarColor("--col-bg-att", this);
+        this.nodeAccentTextColor = getCSSVarColor("--col-primary-bg-att", this);
     }
 
     /**
@@ -276,7 +281,7 @@ export class HMComponent extends LitElement {
     }
 
     /**
-     * _printHMNodes prints an analysis if the hmNodes to the console.
+     * _printHMNodes prints an analysis of the hmNodes to the console.
      * Only for developing purposes.
      */
     _printHMNodes() {
@@ -1178,7 +1183,7 @@ export class HMComponent extends LitElement {
     _paintCanvas() {
         const el: HTMLCanvasElement = <HTMLCanvasElement>this.shadowRoot?.getElementById("c");
         let oldviewportTransform: number[]
-        this._getCSSColors();
+        this._getCSSSettings();
         if (this.canvas) {
             oldviewportTransform = this.canvas.viewportTransform
             this._disposeOfCanvas();
@@ -1495,7 +1500,7 @@ export class HMComponent extends LitElement {
         }
         this.rows.forEach(row => {
             row.forEach((edge, index) => {
-                if (edge.originalEdge && edge.originalEdge.colorIndex) {
+                if (edge.originalEdge) {
                     edge.colorIndex = edge.originalEdge.colorIndex;
                 }
                 this._drawEdge(edge, this.edgeColorRange);
@@ -1514,7 +1519,6 @@ export class HMComponent extends LitElement {
         let target = [this.getPointX(target_x), this.getPointY(target_y)];
         let edgeColor = colorRange.length > 1 ? colorRange[edge.colorIndex % HMComponent.COLOR_STEPS] : colorRange[0];
         // if (edge.colorIndex < 0) edgeColor = edge.originalEdge.colorIndex?"red":"black"
-
         if (edge.dummyEdge) {
             dummy_start_y = this.getPointY(this.rowInfo[edge.sourceNode.pos.y - 1].screenY);
         }
@@ -1528,21 +1532,26 @@ export class HMComponent extends LitElement {
         }
         if (origin[0] + outPos != target[0] + inPos && !edge.targetNode.dummyNode) {
             if (edge.inOrder < 0) {
-                inPos -= this.inEdgeShift + 1;
+                inPos -= this.inEdgeShift + 1
+                // edgeColor = "red"
+
                 if (!edge.targetNode.hasStraightIn) {
-                    inPos += this.laneWidth;
+                    inPos += this.laneWidth - 1
                     // edgeColor = "green"
                 }
-            } else if (edge.inOrder > 0) {
-                inPos += this.inEdgeShift + 1;
+            } else if (edge.inOrder >= 0) {
+                // edgeColor = "orange"
                 if (!edge.targetNode.hasStraightIn) {
                     inPos -= this.laneWidth;
-                    // edgeColor = "red"
+                    // edgeColor = "pink"
+                } else {
+                    inPos += this.inEdgeShift + 1;
                 }
             }
         } else {
             if (edge.targetNode.inEdges.length == 1 && !edge.targetNode.dummyNode) {
                 inPos = this.edgeMargin;
+
             }
         }
 
@@ -1581,10 +1590,10 @@ export class HMComponent extends LitElement {
 
         // Just for development:
         /*
-        this.canvas.add(new fabric.Textbox(edge.colorIndex.toString(), {
+        this.canvas.add(new fabric.Textbox(edge.id.toString(), {
             left: origin[0] + outPos + (origin[0] + outPos > target[0] + inPos?strokeWidth:0),
             top: origin[1] + lane,
-            stroke: "black",
+            stroke: edgeColor,
             fontSize: 16,
             textAlign: "center",
             width: this.nodeWidth * this.scale,
@@ -1690,6 +1699,8 @@ export class HMComponent extends LitElement {
                     stroke: "black",
                     fontSize: 16,
                     textAlign: "center",
+                    // fontFamily: this.cssFontFamily,
+                    // fontFamily: "Comic Sans",
                     width: this.nodeWidth * this.scale,
                     height: this.nodeHeight * this.scale,
                     selectable: false,
@@ -1727,6 +1738,7 @@ export class HMComponent extends LitElement {
                 // originY: "center",
                 fontSize: 16,
                 textAlign: "center",
+                fontFamily: this.cssFontFamily,
                 width: this.nodeWidth * this.scale,
                 height: this.nodeHeight * this.scale,
                 selectable: false,
