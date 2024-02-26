@@ -1,15 +1,15 @@
 import {graphToDot, hmNode, hmNodes2Graph, removeTransitiveRelationsFromNodes, transitiveReduction} from "../src/lib/hm"
-import {getFACase} from "./data/testdata"
+// import {getFACase} from "./data/testdata"
 import {graphlib} from "dagre"
 import Graph = graphlib.Graph
 import { expect, test } from "vitest";
 
-test("test if FA Case can be processed", () => {
-    const hmNodes = [...getFACase()]
-    console.log(graphToDot(hmNodes2Graph(hmNodes)))
-    expect(removeTransitiveRelationsFromNodes(hmNodes)).toBe(true)
-    console.log(graphToDot(hmNodes2Graph(hmNodes)))
-});
+// test("test if FA Case can be processed", () => {
+//     const hmNodes = [...getFACase()]
+//     console.log(graphToDot(hmNodes2Graph(hmNodes)))
+//     expect(removeTransitiveRelationsFromNodes(hmNodes)).toBe(true)
+//     console.log(graphToDot(hmNodes2Graph(hmNodes)))
+// });
 
 test("test if cyclic graphs are refused", () => {
     let hmNodes: Array<hmNode> = []

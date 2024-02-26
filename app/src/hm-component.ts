@@ -9,17 +9,15 @@ import local_css from "./styles/hm-component.sass?inline";
 import {
     findBestHorizontalOrderForEdges,
     hmNode,
-    Point,
     HMEdge,
     removeTransitiveRelationsFromNodes,
-    positionHMEnds, mergeNewPositions,
+    positionHMEnds, mergeNewPositions, analyzeRelations, findNode, HMAnalysisResult,
 } from "./lib/hm";
 import { graphlib } from "dagre";
 import Graph = graphlib.Graph;
 import {
     getCSSVarColor,
     inDevelopmentMode,
-    increase_brightness,
     RGBAColor,
     RGBToHex,
     RGBAToHexA,
@@ -63,7 +61,6 @@ type AppMessage = {
     message: string
 }
 
-
 @customElement("hm-component")
 export class HMComponent extends LitElement {
     static styles = unsafeCSS(local_css);
@@ -93,7 +90,13 @@ export class HMComponent extends LitElement {
     private nodeTextColor: RGBAColor;
     private nodeColorAccent: RGBAColor;
     private nodeAccentTextColor: RGBAColor;
+
+    private nodeColorAlert: string;
+    private nodeLocusTypeTextColor: string;
+    private nodeLocusTypeAccent: string;
+
     private cssFontFamily: string;
+    private locusTypeColors: AnyDict;
 
 
     private scrollBarHeight: number = 20; //That's just a fallback value
@@ -101,6 +104,13 @@ export class HMComponent extends LitElement {
     private columnMargin: number = this.edgeMargin * 2;
     private fontHeight: number = 16; //That's just a falback value
     private inErrorState = false;
+
+    private wallSVGStr = `
+        <svg xmlns="http://www.w3.org/2000/svg" xml:space="preserve" height="32px" width="32px" viewBox="0 0 503.326 503.326">
+        <path d="M199.596 86.78h104.136v52.068H199.596zM381.834 156.203h121.492v52.068H381.834zM138.85 156.203h104.136v52.068H138.85zM321.088 225.627h104.136v52.068H321.088zM78.105 225.627h104.136v52.068H78.105zM199.596 225.627h104.136v52.068H199.596zM.003 156.203h121.492v52.068H.003zM.003 225.627h60.746v52.068H.003zM442.579 86.78h60.746v52.068h-60.746zM.003 364.475h60.746v52.068H.003zM.003 295.051h121.492v52.068H.003zM321.088 364.475h104.136v52.068H321.088zM381.834 295.051h121.492v52.068H381.834zM199.596 364.475h104.136v52.068H199.596zM260.342 295.051h104.136v52.068H260.342zM78.105 86.78h104.136v52.068H78.105zM503.323 8.682a8.676 8.676 0 0 0-8.678-8.678H381.832v69.424h121.492V8.682zM442.579 225.627h60.746v52.068h-60.746zM260.342 433.898h104.136v69.424H260.342zM121.493.004H8.679A8.676 8.676 0 0 0 .001 8.682v60.746h121.492V.004zM138.85 433.898h104.136v69.424H138.85zM381.832 503.326h112.814a8.676 8.676 0 0 0 8.678-8.678v-60.746H381.832v69.424zM.001 494.648a8.676 8.676 0 0 0 8.678 8.678h112.814v-69.424H.001v60.746zM442.579 364.475h60.746v52.068h-60.746zM138.85 295.051h104.136v52.068H138.85zM321.088 86.78h104.136v52.068H321.088zM260.342 156.203h104.136v52.068H260.342zM260.342 0h104.136v69.424H260.342zM.003 86.78h60.746v52.068H.003zM78.105 364.475h104.136v52.068H78.105zM138.85 0h104.136v69.424H138.85z"/>
+        </svg>
+    `;
+    private wallSVG: fabric.Group | fabric.Object;
 
     // @property()
     scale: number = 1.0;
@@ -126,7 +136,12 @@ export class HMComponent extends LitElement {
         multiColorEdges: true,
         multiColorSelection: false,
         displayMode: "lightMode",
+        rowStyle: "rowStyleLane",
+        locusTypeStyle: "label", //"label" or "" for none
     };
+
+    @property()
+    selectedTag: string = ""
 
     rows: Array<Array<HMEdge>> = [];
     edgeRowInfo: Array<RowLaneInfo> = [];
@@ -144,10 +159,14 @@ export class HMComponent extends LitElement {
     private lastPosY: number;
     private parentWidth: number;
     private parentHeight: number;
-
+    private rowGroup: fabric.Group | null = null;
+    private _analysisResults: HMAnalysisResult;
 
     constructor() {
         super();
+        fabric.loadSVGFromString(this.wallSVGStr, (results, options) => {
+            this.wallSVG = fabric.util.groupSVGElements(results, options);
+        });
     }
 
     firstUpdated(_changedProperties: any) {
@@ -156,11 +175,10 @@ export class HMComponent extends LitElement {
 
     connectedCallback() {
         super.connectedCallback();
-        this.addEventListener("keyup", this.keyPressed)
+        this.addEventListener("keyup", this.keyPressed);
     }
 
     layoutOption(option: string, defaultValue: any): any {
-
         if (this.layout && this.layout.hasOwnProperty(option)) {
             return this.layout[option];
         }
@@ -171,7 +189,7 @@ export class HMComponent extends LitElement {
         let colorRange = 30;
         this.backgroundColor = getCSSVarColor("--col-bg-body", this);
         this.cssFontFamily = getCSSVar("--standard-text-font", this);
-        console.log(`using font ${this.cssFontFamily}`)
+        console.log(`using font ${this.cssFontFamily}`);
 
         let lightness = RGBAToHSL([this.backgroundColor[0], this.backgroundColor[1], this.backgroundColor[2], 1])[2];
         if (lightness < 50) {
@@ -198,6 +216,10 @@ export class HMComponent extends LitElement {
         this.nodeTextColor = getCSSVarColor("--col-primary-bg-1", this);
         this.nodeColorAccent = getCSSVarColor("--col-bg-att", this);
         this.nodeAccentTextColor = getCSSVarColor("--col-primary-bg-att", this);
+        this.nodeLocusTypeTextColor = getCSSVar("--col-primary-bg-2", this);
+        this.nodeLocusTypeAccent = getCSSVar("--col-accent-bg-2", this);
+        this.nodeColorAlert = getCSSVar("--col-bg-alert", this);
+
     }
 
     /**
@@ -306,8 +328,30 @@ export class HMComponent extends LitElement {
         }
     }
 
+    _analyzeGraph() {
+        let startTime = Date.now()
+        const result = analyzeRelations(this.hmNodes)
+        for (let cycle of result.cycles) {
+            let logStr = ""
+            for (let rel of cycle.originalCycle) {
+                logStr += `${findNode(this.hmNodes, rel).name} -> `
+            }
+            console.log("solved cycle " + logStr)
+        }
+        for (let r of result.removedContemporaries) {
+            console.log(`removed relation ${findNode(this.hmNodes, r[0]).name}<->${findNode(this.hmNodes, r[1]).name}`)
+        }
+        console.log("Analyze relations returned", result)
+        console.log(`Analyzing the relations took ${Date.now()-startTime} ms`)
+        return result
+    }
+
+    public getAnalysisResults() {
+        return this._analysisResults
+    }
+
     _buildHMNodesGraph() {
-        this.hmGraph = new Graph({ multigraph: true });
+        this.hmGraph = new Graph({ multigraph: false });  // once was true, but I don't know why that would be necessary
         if (this.hmNodes) {
             let removedEdges = removeTransitiveRelationsFromNodes(this.hmNodes);
             this._printHMNodes();
@@ -893,6 +937,26 @@ export class HMComponent extends LitElement {
         console.log(this.columnInfo);
     }
 
+    _prepareNodeSpecificColors() {
+        this.locusTypeColors = {};
+        this.hmNodes.forEach((node) => {
+            if (!node.dummyNode) {
+                if (!this.locusTypeColors.hasOwnProperty(node.locusType)) {
+                    let col = getCSSVar(`--hm-col-locus-type-${node.locusType}`,
+                        (this.getRootNode() as ShadowRoot).host,
+                        this.layoutOption("displayMode", "lightMode") === "lightMode" ? "--col-bg-2-darker" : "--col-bg-2-lighter");
+                    // this.layoutOption("displayMode","lightMode") === "lightMode"?'--col-bg-2-darker':'--col-bg-2-lighter')
+                    console.log(`trying --hm-col-locus-type-${node.locusType}: ${col}`);
+                    this.locusTypeColors[node.locusType] = col ? col : this.layoutOption("displayMode", "lightMode") === "lightMode" ? "black" : "white";
+                }
+            }
+        });
+    }
+
+    _getLocusTypeColor(locusType: string) {
+        return this.locusTypeColors[locusType];
+    }
+
     _tidyUp() {
         this.rows = [];
         this.edgeRowInfo = [];
@@ -906,11 +970,22 @@ export class HMComponent extends LitElement {
 
     protected willUpdate(_changedProperties: PropertyValues) {
         super.willUpdate(_changedProperties);
-        if (_changedProperties.has("dotNotation") && (this.dotNotation)) {
+        if (_changedProperties.has("dotNotation") && (this.dotNotation) || _changedProperties.has("hmNodes")) {
             this.inErrorState = false;
             this._messages = [];
         }
     }
+
+    private _issueError(msg: string, isError: boolean) {
+        console.log(msg);
+        this._messages.push({
+            error: isError,
+            message: msg,
+        });
+        this.inErrorState = isError;
+        this.requestUpdate();
+    }
+
 
     updated(_changedProperties: any) {
         console.log("hm-component update", _changedProperties);
@@ -925,13 +1000,30 @@ export class HMComponent extends LitElement {
             }
             scrollBarCheck.style.display = "none";
         }
-        if (_changedProperties.has("hmNodes")) {
+        if (_changedProperties.has("hmNodes") && (this.hmNodes)) {
             this._tidyUp();
-            this._buildHMNodesGraph();
+            try {
+                let result = this._analyzeGraph()
+                console.log("_analyzeGraph successful", result)
+                this._analysisResults = result
+                if (result.errors.length > 0) {
+                    result.errors.forEach(e => this._issueError(e, true))
+                    return
+                }
+            } catch (e) {
+                this._issueError(`An error occurred when analyzing the stratigraphic relations: ${e as string}`, true);
+            }
+            try {
+                this._buildHMNodesGraph();
+            } catch(e) {
+                this._issueError(`An error occurred when building a matrix from the stratigraphic relations: ${e as string}`, true);
+                return;
+            }
             this._HMNodes2Dot();
         } else {
-            if (_changedProperties.has("color") || _changedProperties.has("layout")) {
+            if (_changedProperties.has("color") || _changedProperties.has("layout") || _changedProperties.has("selectedTag")) {
                 if (this.canvas) {
+                    this._prepareNodeSpecificColors();
                     this._paintCanvas();
                     this._paintGraph();
                 }
@@ -971,19 +1063,20 @@ export class HMComponent extends LitElement {
                 this._calcContemporaries();
                 this.calcFinalMaxDimensions();
                 this._markStraightEdges();
+                this._prepareNodeSpecificColors();
                 this._paintCanvas();
                 this._paintGraph();
                 this._notifyUpdate();
             });
         }
         if (_changedProperties.has("mouseMode")) {
-            if (this.canvas ) {
-                if (this.mouseMode == 0) this.canvas.defaultCursor = "pointer"
+            if (this.canvas) {
+                if (this.mouseMode == 0) this.canvas.defaultCursor = "pointer";
                 else {
-                    this.canvas.defaultCursor = "move"
+                    this.canvas.defaultCursor = "move";
                     // this.canvas.hoverCursor = "move"
                     // this.canvas.requestRenderAll()
-                    console.log("move cursor")
+                    console.log("move cursor");
                 }
             }
         }
@@ -1039,60 +1132,60 @@ export class HMComponent extends LitElement {
 
     zoomIn() {
         let zoom = this.canvas.getZoom();
-        console.log("zooming in")
+        console.log("zooming in");
         zoom *= 1.1;
         this.zoom(zoom);
     }
 
     zoomOut() {
         let zoom = this.canvas.getZoom();
-        console.log("zooming out")
+        console.log("zooming out");
         zoom *= 0.9;
         this.zoom(zoom);
     }
 
     original() {
         let vpt = this.canvas.viewportTransform;
-        vpt[4] = 1
-        vpt[5] = 1
+        vpt[4] = 1;
+        vpt[5] = 1;
         this.canvas.setViewportTransform(this.canvas.viewportTransform);
-        this.zoom(1)
+        this.zoom(1);
     }
 
     getZoom(): number {
         if (this.canvas)
-            return this.canvas.getZoom()
+            return this.canvas.getZoom();
         else
-            return 0
+            return 0;
     }
 
     zoomToFit() {
         if (!this.canvas)
-            return
-        let cs = window.getComputedStyle(this)
-        let width = parseInt(cs.width)
-        let height = parseInt(cs.height)
+            return;
+        let cs = window.getComputedStyle(this);
+        let width = parseInt(cs.width);
+        let height = parseInt(cs.height);
         if (Number.isNaN(width))
-            return
-        let ratio = Math.min(width / this.canvas.width, height / this.canvas.height)
-        ratio = width / this.canvas.width
+            return;
+        let ratio = Math.min(width / this.canvas.width, height / this.canvas.height);
+        ratio = width / this.canvas.width;
         if (ratio < 1) {
             let vpt = this.canvas.viewportTransform;
-            vpt[4] = 1
-            vpt[5] = 1
+            vpt[4] = 1;
+            vpt[5] = 1;
             this.canvas.setViewportTransform(this.canvas.viewportTransform);
-            console.log("zoomToFit", ratio)
-            this.zoom(ratio)
+            console.log("zoomToFit", ratio);
+            this.zoom(ratio);
         }
     }
 
     zoom(zoom: number, x = -1, y = -1) {
         if (zoom > HMComponent.MAX_ZOOM) zoom = HMComponent.MAX_ZOOM;
         if (zoom < HMComponent.MIN_ZOOM) zoom = HMComponent.MIN_ZOOM;
-        console.log(`zooming to ${zoom}`)
+        console.log(`zooming to ${zoom}`);
         if (x == -1 || y == -1) {
             this.canvas.setZoom(zoom);
-            this.canvas.requestRenderAll()
+            this.canvas.requestRenderAll();
         } else {
             this.canvas.zoomToPoint({ x: x, y: y }, zoom);
             // let vpt = this.canvas.viewportTransform
@@ -1113,40 +1206,41 @@ export class HMComponent extends LitElement {
             // }
 
         }
+        this._drawRows();
     }
 
     keyPressed(e: KeyboardEvent) {
-            console.log("key", e)
-            if (e.target === this) {
-                if (e.key === "+") {
-                    this.zoomIn();
-                } else if (e.key === "-") {
-                    this.zoomOut();
-                } else if (e.key === "0") {
-                    this.original();
-                }
-
-                e.preventDefault();
-                e.stopPropagation();
+        console.log("key", e);
+        if (e.target === this) {
+            if (e.key === "+") {
+                this.zoomIn();
+            } else if (e.key === "-") {
+                this.zoomOut();
+            } else if (e.key === "0") {
+                this.original();
             }
+
+            e.preventDefault();
+            e.stopPropagation();
+        }
     }
 
     _registerCanvasEvents() {
         this.canvas.on("mouse:wheel", opt => {
             let delta = opt.e.deltaY;
             let zoom = this.canvas.getZoom();
-            let specialKey = opt.e.altKey || opt.e.ctrlKey
+            let specialKey = opt.e.altKey || opt.e.ctrlKey;
             if (specialKey) {
                 zoom *= 0.999 ** delta;
                 this.zoom(zoom, opt.e.offsetX, opt.e.offsetY);
-                this.canvas.requestRenderAll()
+                this.canvas.requestRenderAll();
                 opt.e.preventDefault();
                 opt.e.stopPropagation();
             }
         });
-        this.canvas.on('mouse:down', (opt) => {
+        this.canvas.on("mouse:down", (opt) => {
             let evt = opt.e;
-            let specialKey = evt.altKey || evt.ctrlKey
+            let specialKey = evt.altKey || evt.ctrlKey;
             if ((specialKey && !(this.mouseMode == 1)) || (!specialKey && (this.mouseMode == 1))) {
                 this.isDragging = true;
                 this.selection = false;
@@ -1158,7 +1252,7 @@ export class HMComponent extends LitElement {
                 }
             }
         });
-        this.canvas.on('mouse:move', (opt) => {
+        this.canvas.on("mouse:move", (opt) => {
             if (this.isDragging) {
                 let e = opt.e;
                 let vpt = this.canvas.viewportTransform;
@@ -1169,29 +1263,30 @@ export class HMComponent extends LitElement {
                 this.lastPosY = e.clientY;
             }
         });
-        this.canvas.on('mouse:up', (opt) => {
+        this.canvas.on("mouse:up", (opt) => {
             // on mouse up we want to recalculate new interaction
             // for all objects, so we call setViewportTransform
             if (this.isDragging) {
                 this.canvas.setViewportTransform(this.canvas.viewportTransform);
                 this.isDragging = false;
                 this.selection = true;
+                this._drawRows();
             }
         });
     }
 
     _paintCanvas() {
         const el: HTMLCanvasElement = <HTMLCanvasElement>this.shadowRoot?.getElementById("c");
-        let oldviewportTransform: number[]
+        let oldviewportTransform: number[];
         this._getCSSSettings();
         if (this.canvas) {
-            oldviewportTransform = this.canvas.viewportTransform
+            oldviewportTransform = this.canvas.viewportTransform;
             this._disposeOfCanvas();
             this.selectedNode = undefined;
         }
-        let cs = window.getComputedStyle(this.parentElement)
-        this.parentWidth = parseInt(cs.width)
-        this.parentHeight = parseInt(cs.height)
+        let cs = window.getComputedStyle(this.parentElement);
+        this.parentWidth = parseInt(cs.width);
+        this.parentHeight = parseInt(cs.height);
 
         this.canvas = new fabric.Canvas(el, {
             backgroundColor: RGBAToHexA(this.backgroundColor),
@@ -1200,7 +1295,7 @@ export class HMComponent extends LitElement {
             selection: false,
         });
         if (oldviewportTransform)
-            this.canvas.setViewportTransform(oldviewportTransform)
+            this.canvas.setViewportTransform(oldviewportTransform);
 
         this._registerCanvasEvents();
 
@@ -1222,6 +1317,76 @@ export class HMComponent extends LitElement {
 
 
     _drawRows() {
+
+        if (this.layoutOption("rowStyle", "rowStyleDashedLine") == "rowStyleNone") return;
+        let lineColor = this.layoutOption("displayMode", "lightMode") == "darkMode" ? RGBAToHexA([this.edgeColor[0], this.edgeColor[1], this.edgeColor[2], 0.2]) : RGBAToHexA([this.edgeColor[0], this.edgeColor[1], this.edgeColor[2], 0.2]);
+        let laneColor = this.layoutOption("displayMode", "lightMode") == "darkMode" ? RGBAToHexA([this.nodeColor[0], this.nodeColor[1], this.nodeColor[2], 0.3]) : RGBAToHexA([this.nodeColor[0], this.nodeColor[1], this.nodeColor[2], 0.05]);
+        const transform = this.canvas.viewportTransform;
+        const group: any[] = [];
+        let zoom = this.canvas.getZoom();
+        let leftBorder = -transform[4] / zoom;
+        let width = (this.canvas.getVpCenter().x - leftBorder) * 2;
+        // console.log("drawing rows: ", transform[4], this.canvas.getZoom())
+        // if (this.testRect) this.canvas.remove(this.testRect)
+        // this.testRect = new fabric.Rect({
+        //     left: leftBorder,
+        //     top:10,
+        //     width: width - (20 / zoom),
+        //     height: 100,
+        //     strokeWidth: 3,
+        //     stroke: "red",
+        // })
+        // this.canvas.add(this.testRect)
+
+        this.rowInfo.forEach((row, index) => {
+            if (this.layoutOption("rowStyle", "rowStyleDashedLine") == "rowStyleDashedLine") {
+                screenY = this.getPointY(row.screenY - (index % 2 ? -7 : 5));
+                group.push(new fabric.Line([leftBorder, screenY, leftBorder + width, screenY], {
+                    stroke: lineColor,
+                    strokeWidth: 2,
+                    strokeDashArray: [4, 8],
+                    // width: 60 * this.scale,
+                    // height: 40 * this.scale,
+                    selectable: false,
+                    hoverCursor: "none",
+
+                }));
+            } else {
+                if (!(index % 2)) {
+                    screenY = this.getPointY(row.screenY - 5);
+                    group.push(new fabric.Rect({
+                        left: leftBorder,
+                        top: screenY,
+                        borderColor: "",
+                        width: width,
+                        height: this.nodeHeight + 5 + 7,
+                        stroke: "",
+                        fill: laneColor,
+                        selectable: false,
+                        hoverCursor: "none",
+                    }));
+                }
+            }
+        });
+        if (group.length > 0) {
+            if (this.rowGroup) {
+                this.canvas.remove(this.rowGroup);
+                this.rowGroup = null;
+                // this.canvas.backgroundColor = "lightpink"
+            }
+            this.rowGroup = new fabric.Group(group, {
+                selectable: false,
+                evented: false,
+                hasControls: false,
+                hasBorders: false,
+                lockMovementX: true,
+                lockMovementY: true,
+                hoverCursor: "default",
+            });
+            this.canvas.add(this.rowGroup);
+            this.rowGroup.sendToBack();
+        }
+        this.canvas.requestRenderAll();
 
     }
 
@@ -1308,7 +1473,7 @@ export class HMComponent extends LitElement {
         console.log("selected ", option.e);
         let group = option.target;
         this._selectNode(group.data);
-        this.focus()
+        this.focus();
         option.e.preventDefault();
     }
 
@@ -1472,6 +1637,7 @@ export class HMComponent extends LitElement {
         // this._drawColumns()
         // this._drawMatrix();
         let colorIndex = 0;
+        this._drawRows();
         this.hmNodes.forEach((node, index) => {
             rowNr = node.pos.y;
             colNr = node.pos.x;
@@ -1532,11 +1698,11 @@ export class HMComponent extends LitElement {
         }
         if (origin[0] + outPos != target[0] + inPos && !edge.targetNode.dummyNode) {
             if (edge.inOrder < 0) {
-                inPos -= this.inEdgeShift + 1
+                inPos -= this.inEdgeShift + 1;
                 // edgeColor = "red"
 
                 if (!edge.targetNode.hasStraightIn) {
-                    inPos += this.laneWidth - 1
+                    inPos += this.laneWidth - 1;
                     // edgeColor = "green"
                 }
             } else if (edge.inOrder >= 0) {
@@ -1682,94 +1848,41 @@ export class HMComponent extends LitElement {
         // let fill = this.moveMatrix[rowNr][colNr] ? "#00AA00" : "";
         if (node.dummyNode) {
             if (this.showDummyNodes) {
-                this.canvas.add(new fabric.Rect({
-                    left: origin[0],
-                    top: origin[1],
-                    fill: "",
-                    stroke: "lightgrey",
-                    strokeWidth: 2,
-                    width: this.columnInfo[colNr - 1].width,
-                    height: this.nodeHeight * this.scale,
-                    selectable: false,
-                    // backgroundColor: 'white'
-                }));
-                this.canvas.add(new fabric.Textbox(node.name || node.id, {
-                    left: origin[0],
-                    top: origin[1],
-                    stroke: "black",
-                    fontSize: 16,
-                    textAlign: "center",
-                    // fontFamily: this.cssFontFamily,
-                    // fontFamily: "Comic Sans",
-                    width: this.nodeWidth * this.scale,
-                    height: this.nodeHeight * this.scale,
-                    selectable: false,
-                }));
+                this._drawDummyNode(origin, colNr, node);
             }
             return this.nodeWidth;
         } else {
             let group: Array<fabric.Object> = [];
             let fill = RGBToHex(node != this.selectedNode ? this.nodeColor : this.nodeColorAccent);
-            // fill = node.hasStraightIn?"red":fill
-            group.push(new fabric.Rect({
-                // left: origin[0],
-                // top: origin[1],
-                // originX: "center",
-                // originY: "center",
-                left: 0,
-                top: 0,
-                fill: fill,
-                stroke: RGBToHex(node != this.selectedNode ? this.nodeColorDarker : this.nodeColorAccent),
-                strokeWidth: 3,
-                width: this.nodeWidth * this.scale,
-                height: this.nodeHeight * this.scale,
-                selectable: false,
-                rx: 5,
-                ry: 5,
-            }));
-
-            let text = new fabric.Textbox(node.name || node.id, {
-                // left: origin[0],
-                // top: origin[1],
-                left: 0,
-                top: this.nodeHeight * this.scale / 2 - this.fontHeight * this.scale / 2,
-                stroke: RGBToHex(node != this.selectedNode ? this.nodeTextColor : this.nodeAccentTextColor),
-                // originX: "center",
-                // originY: "center",
-                fontSize: 16,
-                textAlign: "center",
-                fontFamily: this.cssFontFamily,
-                width: this.nodeWidth * this.scale,
-                height: this.nodeHeight * this.scale,
-                selectable: false,
-            });
-            group.push(text);
+            let locusType = node.locusType;
+            let fill2 = this._getLocusTypeColor(locusType);
+            this._drawLocusNodeProper(group, fill2, node, locusType, fill);
 
             if (this.layoutOption("markContemporaries", true)) {
                 if (node.leftContemporary) {
                     group.push(new fabric.Rect({
-                        left: 1,
+                        left: -1,
                         top: (this.nodeHeight / 2 - this.nodeHeight / 8) * this.scale,
                         // originX: "left",
                         // originY: "center",
                         fill: RGBToHex(this.edgeColor),
                         stroke: RGBToHex(this.edgeColor),
                         strokeWidth: 2,
-                        width: this.nodeHeight / 4 * this.scale,
+                        width: 2,
                         height: this.nodeHeight / 4 * this.scale,
                         selectable: false,
                     }));
                 }
                 if (node.rightContemporary) {
                     group.push(new fabric.Rect({
-                        left: (this.nodeWidth - this.nodeHeight / 4) * this.scale,
+                        left: 2 + (this.nodeWidth - 2) * this.scale,
                         top: (this.nodeHeight / 2 - this.nodeHeight / 8) * this.scale,
                         // originX: "left",
                         // originY: "center",
                         fill: RGBToHex(this.edgeColor),
                         stroke: RGBToHex(this.edgeColor),
                         strokeWidth: 2,
-                        width: this.nodeHeight / 4 * this.scale,
+                        width: 3,
                         height: this.nodeHeight / 4 * this.scale,
                         selectable: false,
                     }));
@@ -1813,6 +1926,231 @@ export class HMComponent extends LitElement {
         }
     }
 
+    private _drawLocusNodeProper(group: Array<Object>, typeFill: string, node: hmNode, locusType: string, fill: string) {
+        locusType = locusType?[...locusType.toUpperCase().substring(0, 2)].join("\n"):"?\n?"
+        let bwMode = this.layoutOption("displayMode", "lightMode") === "blackWhiteMode";
+        let showLocusStyles = this.layoutOption("locusTypeStyle", "") === "label";
+
+
+        group.push(new fabric.Rect({
+            // left: origin[0],
+            // top: origin[1],
+            // originX: "center",
+            // originY: "center",
+            left: 0,
+            top: 0,
+            fill: fill,
+            stroke: RGBToHex(node != this.selectedNode ? this.nodeColorDarker : this.nodeColorAccent),
+            strokeWidth: 3,
+            width: this.nodeWidth,
+            height: this.nodeHeight,
+            selectable: false,
+            rx: 5,
+            ry: 5,
+        }));
+
+        if (!bwMode && this.selectedTag && node.tags.find(x => x === this.selectedTag)) {
+            this._drawtagMarker(group, fill, node);
+        }
+
+        let text = new fabric.Textbox(node.name || node.id, {
+            // left: origin[0],
+            // top: origin[1],
+            left: showLocusStyles?30:2,
+            // top: this.nodeHeight * this.scale / 2 - this.fontHeight * this.scale / 2,
+            top: 3,
+            stroke: RGBToHex(node != this.selectedNode ? this.nodeTextColor : this.nodeAccentTextColor),
+            // originX: "center",
+            // originY: "center",
+            fontSize: 16,
+            textAlign: showLocusStyles?"left":"center",
+            fontFamily: this.cssFontFamily,
+            width: showLocusStyles?this.nodeWidth - 30:this.nodeWidth-2,
+            height: this.nodeHeight * this.scale,
+            selectable: false,
+        });
+        group.push(text);
+
+        if (showLocusStyles) {
+            group.push(new fabric.Rect({
+                // left: origin[0],
+                // top: origin[1],
+                // originX: "center",
+                // originY: "center",
+                left: 0,
+                top: 0,
+                fill: bwMode ? "" : typeFill,
+                stroke: bwMode ? "black" : typeFill,
+                strokeWidth: 3,
+                width: 16,
+                height: this.nodeHeight,
+                selectable: false,
+                // rx: 5,
+                // ry: 5,
+            }));
+
+            text = new fabric.Textbox(locusType || "", {
+                left: 4,
+                top: 2,
+                // stroke: "white",
+                fill: bwMode ? "black" : this.nodeLocusTypeTextColor,
+                // backgroundColor: "darkgreen",
+                // stroke: RGBToHex(node != this.selectedNode ? this.nodeTextColor : this.nodeAccentTextColor),
+                // originX: "center",
+                // originY: "center",
+                fontSize: 16,
+                textAlign: "left",
+                fontFamily: "monospace",
+                fontWeight: "300",
+                width: 16,
+                lineHeight: .9,
+                height: this.nodeHeight,
+                selectable: false,
+            });
+
+            // let svgGroup = new fabric.Group([fabric.util.object.clone(this.wallSVG)], {
+            //     top: 0,
+            //     left: 0
+            // })
+            group.push(text);
+
+        }
+    }
+
+    private _drawtagMarker(group: Array<Object>, fill: string, node: hmNode) {
+        let size = 25;
+        group.push(new fabric.Rect({
+            left: this.nodeWidth - size,
+            top: 0,
+            fill: this.nodeColorAlert,
+            stroke: this.nodeColorAlert,
+            strokeWidth: 2,
+            width: size+1,
+            height: size,
+            selectable: false,
+            rx: 5,
+            ry: 5,
+        }));
+        let diag = Math.sqrt(2 * size ** 2);
+        group.push(new fabric.Polyline(
+            [
+                {x: this.nodeWidth - size, y: 3},
+                {x:this.nodeWidth, y:size},
+                {x:this.nodeWidth - size/2, y:this.nodeHeight -2},
+                {x:this.nodeWidth - size * 2, y:3 },
+                {x: this.nodeWidth - size, y: 3}
+            ],{
+            fill: fill,
+            stroke: fill,
+            strokeWidth: 1,
+            selectable: false,
+        }));
+        group.push(new fabric.Line([this.nodeWidth - size, 0, this.nodeWidth, size], {
+            stroke: RGBToHex(node != this.selectedNode ? this.nodeColorDarker : this.nodeColorAccent),
+            strokeWidth: 3,
+        }));
+    }
+
+// private _drawLocusNode(group: Array<Object>, fill2: string, node: hmNode, locusType: string, fill: string) {
+    //     group.push(new fabric.Rect({
+    //         // left: origin[0],
+    //         // top: origin[1],
+    //         // originX: "center",
+    //         // originY: "center",
+    //         left: 0,
+    //         top: 0,
+    //         fill: fill2,
+    //         stroke: RGBToHex(node != this.selectedNode ? this.nodeColorDarker : this.nodeColorAccent),
+    //         strokeWidth: 3,
+    //         width: 25,
+    //         height: this.nodeHeight,
+    //         selectable: false,
+    //         rx: 5,
+    //         ry: 5,
+    //     }));
+    //
+    //     let text = new fabric.Textbox(locusType || "", {
+    //         // left: origin[0],
+    //         // top: origin[1],
+    //         left: 10,
+    //         // top: this.nodeHeight * this.scale / 2 - this.fontHeight * this.scale / 2,
+    //         top: 3,
+    //         stroke: "white",
+    //         // stroke: RGBToHex(node != this.selectedNode ? this.nodeTextColor : this.nodeAccentTextColor),
+    //         // originX: "center",
+    //         // originY: "center",
+    //         fontSize: 16,
+    //         textAlign: "center",
+    //         fontFamily: this.cssFontFamily,
+    //         width: 25,
+    //         height: this.nodeHeight * this.scale,
+    //         selectable: false,
+    //     });
+    //     group.push(text);
+    //
+    //
+    //     group.push(new fabric.Rect({
+    //         // left: origin[0],
+    //         // top: origin[1],
+    //         // originX: "center",
+    //         // originY: "center",
+    //         left: 20,
+    //         top: 0,
+    //         fill: fill,
+    //         stroke: RGBToHex(node != this.selectedNode ? this.nodeColorDarker : this.nodeColorAccent),
+    //         strokeWidth: 3,
+    //         width: this.nodeWidth - 20,
+    //         height: this.nodeHeight,
+    //         selectable: false,
+    //         rx: 5,
+    //         ry: 5,
+    //     }));
+    //
+    //     text = new fabric.Textbox(node.name || node.id, {
+    //         // left: origin[0],
+    //         // top: origin[1],
+    //         left: 20,
+    //         // top: this.nodeHeight * this.scale / 2 - this.fontHeight * this.scale / 2,
+    //         top: 3,
+    //         stroke: RGBToHex(node != this.selectedNode ? this.nodeTextColor : this.nodeAccentTextColor),
+    //         // originX: "center",
+    //         // originY: "center",
+    //         fontSize: 16,
+    //         textAlign: "center",
+    //         fontFamily: this.cssFontFamily,
+    //         width: this.nodeWidth - 20,
+    //         height: this.nodeHeight * this.scale,
+    //         selectable: false,
+    //     });
+    //     group.push(text);
+    // }
+
+    private _drawDummyNode(origin: number[], colNr: number, node: hmNode) {
+        this.canvas.add(new fabric.Rect({
+            left: origin[0],
+            top: origin[1],
+            fill: "",
+            stroke: "lightgrey",
+            strokeWidth: 2,
+            width: this.columnInfo[colNr - 1].width,
+            height: this.nodeHeight * this.scale,
+            selectable: false,
+            // backgroundColor: 'white'
+        }));
+        this.canvas.add(new fabric.Textbox(node.name || node.id, {
+            left: origin[0],
+            top: origin[1],
+            stroke: "black",
+            fontSize: 16,
+            textAlign: "center",
+            // fontFamily: this.cssFontFamily,
+            // fontFamily: "Comic Sans",
+            width: this.nodeWidth * this.scale,
+            height: this.nodeHeight * this.scale,
+            selectable: false,
+        }));
+    }
+
     renderMessages() {
         return this._messages.length > 0 ? html`
             <div class="messages-frame">
@@ -1832,6 +2170,7 @@ export class HMComponent extends LitElement {
 
     render() {
         return this.inErrorState ? this.renderMessages() : html`
+            ${this.renderMessages()}
             <div id="scrollbar-calc"
                  style="background-color:red; height:50px;width:50px;overflow: scroll;visibility: hidden">
                 <div style="height:100px;width:100px"></div>
@@ -1842,7 +2181,6 @@ export class HMComponent extends LitElement {
 
                     </div>
                 </div-->
-                ${this.renderMessages()}
                 <canvas id="c">
                 </canvas>
             </div>
@@ -1853,7 +2191,7 @@ export class HMComponent extends LitElement {
         setTimeout(() => {
             this.dispatchEvent(new CustomEvent("hm-repaint",
                 { bubbles: true, composed: true, detail: {} }));
-        },0)
+        }, 0);
     }
 }
 

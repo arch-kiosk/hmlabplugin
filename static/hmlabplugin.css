@@ -65,6 +65,20 @@
   --sl-font-size-large:	var(--font-size-h3);
 }
 
+:root {
+  --hm-col-locus-type-ac: #F05A28;
+  --hm-col-locus-type-st: #F05A28;
+  --hm-col-locus-type-dp: #3ece39;
+  --hm-col-locus-type-ot: #ffcb33;
+  --hm-col-locus-type-bu: #6fcbdc;
+  --hm-col-locus-type-ct: #fa7101;
+  --hm-col-locus-type-pt: #fa7101;
+  --hm-col-locus-type-su: #f3e7cf;
+  --hm-col-locus-type-fl: #ec297b;
+  --hm-col-locus-type-fi: #ec297b;
+  --hm-col-locus-type-gr: #26a9e0;
+}
+
 hmlab-app {
   height: 100%;
   width: 100%;

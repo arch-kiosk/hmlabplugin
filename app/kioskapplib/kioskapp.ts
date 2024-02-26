@@ -17,6 +17,8 @@ export abstract class KioskApp extends LitElement {
         appErrors: { type: Array },
         showProgress: { type: Boolean },
     };
+    protected autoRenderProgress: boolean = true;
+    protected autoRenderErrors: boolean = true;
 
     protected constructor() {
         super();
@@ -59,7 +61,7 @@ export abstract class KioskApp extends LitElement {
             renderedHtml = this.apiRender();
         } else {
             if (this.apiContext && this.apiContext.status === API_STATE_ERROR) renderedHtml = this.renderApiError();
-            else renderedHtml = this.renderNoContextYet();
+            else renderedHtml = html`${this.renderNoContextYet()}${this.renderProgress()} ${this.renderErrors()}`;
         }
         // noinspection HtmlUnknownTarget
         return html`
@@ -114,7 +116,7 @@ export abstract class KioskApp extends LitElement {
                 }
             </style>
             <link rel="stylesheet" href="${this.kiosk_base_url}static/styles.css" />
-            ${this.renderProgress()} ${this.renderErrors()} ${renderedHtml}
+            ${this.autoRenderProgress?this.renderProgress():nothing} ${this.autoRenderErrors?this.renderErrors():nothing} ${renderedHtml}
         `;
     }
 
@@ -136,7 +138,7 @@ export abstract class KioskApp extends LitElement {
     }
 
     renderProgress(force = false): TemplateResult {
-        if (force || this.showProgress)
+      if (force || this.showProgress)
             return html` <div class="loading">
                 <div class="loading-progress"></div>
             </div>`;

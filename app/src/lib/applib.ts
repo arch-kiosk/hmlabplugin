@@ -198,7 +198,7 @@ export function getLatinDate(dt: DateTime, withTime: boolean = true): string {
     return withTime ? dtStr + " " + dt.toLocaleString(DateTime.TIME_SIMPLE) : dtStr;
 }
 
-export function getCSSVar(varName1: string, element?: HTMLElement, varName2?: string): string {
+export function getCSSVar(varName1: string, element?: Element, varName2?: string): string {
     let rootStyles: CSSStyleDeclaration;
 
     if (element) {

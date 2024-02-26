@@ -6,7 +6,6 @@ import { property, state } from "lit/decorators.js";
 import "./hm-component";
 import "kioskuicomponents"
 
-
 // import { SlDropdown } from "@shoelace-style/shoelace";
 
 // @ts-ignore
@@ -14,9 +13,15 @@ import local_css from "./styles/component-hmlab.sass?inline";
 import { ApiLocusRelationsParameter } from "./lib/hmlabtypes";
 import { getCSSVar, handleCommonFetchErrors } from "./lib/applib";
 import { FetchException } from "../kioskapplib/kioskapi";
-import { api2HmNodes, ApiResultLocusRelations } from "./lib/api2hmnodeshelper";
-import { hmNode } from "./lib/hm";
-import { getFACase, getAACase, getTestCase1, getTestCase2, getTestCaseStars } from "../test/data/testdata";
+import {
+    api2HmNodes,
+    apiResult2Loci,
+    apiResult2Relations,
+    ApiResultLocusRelations, debugApi2HmNodes, Locus,
+    LocusRelation,
+} from "./lib/api2hmnodeshelper";
+import { HMAnalysisResult, hmNode } from "./lib/hm";
+// import { getFACase, getAACase, getTestCase1, getTestCase2 } from "../test/data/testdata";
 import { HMComponent } from "./hm-component";
 import "@shoelace-style/shoelace/dist/components/dropdown/dropdown.js";
 import "@shoelace-style/shoelace/dist/components/button/button.js";
@@ -46,13 +51,16 @@ export class HmLabApp extends KioskApp {
         multiColorEdges: true,
         multiColorSelection: false,
         displayMode: "lightMode",
+        rowStyle: "rowStyleLane", //rowStyleLane | rowStyleDashedLine | rowStyleNone
+        locusTypeStyle: "label" //"label" or "" for none
+
     };
 
     // noinspection JSUnresolvedReference
 
     // @provide({context: constantsContext})
     @state()
-    relations: Array<hmNode> = [];
+    hmNodes: Array<hmNode> = [];
 
     @state()
     private enableZoomControls: boolean = false;
@@ -68,9 +76,25 @@ export class HmLabApp extends KioskApp {
     @state()
     private recordTypeAliases: AnyDict = {};
 
+    @state()
+    private tags: Set<string>;
+
+    @state()
+    private selectedTag: string;
+    private relations: Array<LocusRelation> = [];
+    private loci: Array<Locus> = [];
+
+    @state()
+    private relationsWithErrors: HMAnalysisResult = undefined;
+
+    @state()
+    private showRelationsWithErrors: boolean = true;
+
 
     constructor() {
         super();
+        this.autoRenderProgress = false
+        this.autoRenderErrors = false
     }
 
     firstUpdated(_changedProperties: any) {
@@ -121,6 +145,9 @@ export class HmLabApp extends KioskApp {
     getHMComponentStatus() {
         let hm: HMComponent = this.shadowRoot.querySelector("hm-component");
         this.enableZoomControls = !(!hm || hm.getZoom() == 0);
+        this.relationsWithErrors = hm.getAnalysisResults()
+        if (this.relationsWithErrors && this.relationsWithErrors.removed.length > 0)
+            this.showRelationsWithErrors = true
     }
 
     protected loadMatrix(obj: ApiLocusRelationsParameter) {
@@ -140,7 +167,6 @@ export class HmLabApp extends KioskApp {
             urlSearchParams)
             .then((json: ApiResultLocusRelations) => {
                 this.showProgress = false;
-                console.log("relations fetched", json);
                 if (!json.hasOwnProperty("result") || !json.result) {
                     this.addAppError("Kiosk reported an error for your request.");
                     return;
@@ -149,14 +175,35 @@ export class HmLabApp extends KioskApp {
                     this.addAppError("Kiosk did not come up with any stratigraphic data for your request.");
                     return;
                 }
-                this.relations = [...api2HmNodes(json as ApiResultLocusRelations)];
-                console.log(`relations fetched for ${obj.identifier}:`, this.relations);
+                this.loci = apiResult2Loci(json as ApiResultLocusRelations)
+                console.log("locus information fetched: ", this.loci)
+                this.relations = apiResult2Relations(json as ApiResultLocusRelations, this.loci)
+                console.log("relations fetched: ", this.relations)
+                this.hmNodes = [...api2HmNodes(this.relations, this.loci)];
+                // this.hmNodes = [...debugApi2HmNodes(this.relations, this.loci)];
+                this.tags = this.loadTags()
+                console.log("tags", this.tags)
+
+                console.log(`relations fetched for ${obj.identifier}:`, this.hmNodes);
             })
             .catch((e: FetchException) => {
                 this.showProgress = false;
                 // handleFetchError(msg)
                 handleCommonFetchErrors(this, e, "loadConstants", null);
             });
+    }
+
+    private loadTags() {
+        const tags: Set<string> = new Set()
+        if (this.hmNodes) {
+            this.hmNodes.forEach((node) => {
+                if (node.data.hasOwnProperty("tags")) {
+                    let tagsStr = (<AnyDict>node.data)["tags"];
+                    (tagsStr?tagsStr.split("#"):[]).forEach((t:string) => tags.add(t))
+                }
+            })
+        }
+        return tags
     }
 
 
@@ -166,20 +213,17 @@ export class HmLabApp extends KioskApp {
         const tableName = cell.getAttribute("data-table-name");
 
         if (tableName === "-") {
-            switch (identifier) {
-                case "FA":
-                    this.relations = [...getFACase()];
-                    break;
-                case "Test1":
-                    this.relations = [...getTestCase1()];
-                    break;
-                case "Test2":
-                    this.relations = [...getTestCase2()];
-                    break;
-                case "stars":
-                    this.relations = [...getTestCaseStars()];
-                    break;
-            }
+            // switch (identifier) {
+            //     case "FA":
+            //         this.hmNodes = [...getFACase()];
+            //         break;
+            //     case "Test1":
+            //         this.hmNodes = [...getTestCase1()];
+            //         break;
+            //     case "Test2":
+            //         this.hmNodes = [...getTestCase2()];
+            //         break;
+            // }
         } else {
             this.loadMatrix(
                 {
@@ -215,15 +259,14 @@ export class HmLabApp extends KioskApp {
     updated(_changedProperties: any) {
         super.updated(_changedProperties);
         console.log("updated: ", _changedProperties);
-        if (_changedProperties.has("relations")) {
+        if (_changedProperties.has("hmNodes")) {
             if (this.apiContext) {
                 const hm = this.renderRoot.querySelector("#hm");
                 // @ts-ignore
-                hm.hmNodes = this.relations;
+                hm.hmNodes = this.hmNodes;
             }
         }
     }
-
 
     setBackgroundMode(hm: HMComponent, mode: string) {
 
@@ -241,6 +284,16 @@ export class HmLabApp extends KioskApp {
             hm.style.setProperty("--col-primary-bg-1", "#000000");
             hm.style.setProperty("--col-bg-att", "#000000");
             hm.style.setProperty("--col-primary-bg-att", "#ffffff");
+        } else {
+            hm.style.setProperty("--col-accent-bg-body", null);
+            hm.style.setProperty("--col-primary-bg-body", null);
+            hm.style.setProperty("--col-warning-bg-body", null);
+            hm.style.setProperty("--col-bg-1", null);
+            hm.style.setProperty("--col-bg-1-darker", null);
+            hm.style.setProperty("--col-bg-1-lighter", null);
+            hm.style.setProperty("--col-primary-bg-1", null);
+            hm.style.setProperty("--col-bg-att", null);
+            hm.style.setProperty("--col-primary-bg-att", null);
         }
         // else {
         //     hm.style.setProperty("--hm-col-accent-bg-body", getCSSVar("--col-accent-bg-body"));
@@ -271,6 +324,10 @@ export class HmLabApp extends KioskApp {
                 newOptions.multiColorSelection = event.detail.item.checked;
                 hm.layout = newOptions;
                 break;
+            case "locusTypeStyle":
+                newOptions.locusTypeStyle = event.detail.item.checked?"label":"";
+                hm.layout = newOptions;
+                break;
             case "darkMode":
             case "lightMode":
             case "blackWhiteMode":
@@ -278,7 +335,15 @@ export class HmLabApp extends KioskApp {
                 newOptions.displayMode = event.detail.item.dataset.option;
                 hm.layout = newOptions;
                 break;
-
+            case "rowStyleNone":
+            case "rowStyleDashedLine":
+            case "rowStyleLane":
+                newOptions.rowStyle = event.detail.item.dataset.option;
+                ["rowStyleNone", "rowStyleDashedLine", "rowStyleLane"].forEach((m) => {
+                    (this.shadowRoot.querySelector(`sl-menu-item[data-option="${m}"]`) as SlMenuItem).checked = m === newOptions.rowStyle;
+                });
+                hm.layout = newOptions;
+                break;
         }
         this.layoutOptions = newOptions;
     }
@@ -327,6 +392,20 @@ export class HmLabApp extends KioskApp {
         }
     }
 
+    toggleRelationsWithErrors(e: MouseEvent) {
+        let element = e.currentTarget as HTMLElement;
+
+        if (!element.classList.contains("disabled")) {
+            this.showRelationsWithErrors = !this.showRelationsWithErrors
+            // if (!this.showRelationsWithErrors) {
+            //     this.moverActive = false;
+            //     this.arrowActive = true;
+            //     let hm: HMComponent = this.shadowRoot.querySelector("hm-component");
+            //     hm.mouseMode = 0
+            // }
+        }
+    }
+
     activateArrow(e: MouseEvent) {
         let element = e.currentTarget as HTMLElement;
         if (!element.classList.contains("disabled")) {
@@ -340,9 +419,48 @@ export class HmLabApp extends KioskApp {
         }
     }
 
+    tagSelected(e: CustomEvent) {
+        let hm: HMComponent = this.shadowRoot.querySelector("hm-component");
+        let newOptions = { ...this.layoutOptions };
+        const selectedTag = (<HTMLElement>e.detail.item).innerText.trim()
+        if (this.selectedTag != selectedTag) {
+            if (selectedTag === "unmark") {
+                this.selectedTag = undefined
+            } else {
+                this.selectedTag = selectedTag
+            }
+            let el = <SlMenuItem>this.shadowRoot.querySelector(".tagMenuItem[checked]")
+            if (el)
+                el.checked = false
+            hm.selectedTag = this.selectedTag?this.selectedTag:""
+        }
+    }
+
     hmUpdated(event: CustomEvent) {
         console.log("hm updated");
         this.getHMComponentStatus();
+    }
+
+    protected renderTagDropdown() {
+        return html`        
+            <sl-dropdown>
+                <sl-button class="sl-bt-toolbar" size="small" slot="trigger" caret ?disabled="${!this.tags || this.tags.size == 0}">
+                    ${this.selectedTag?this.selectedTag:"mark by tag"}
+                </sl-button>
+                ${this.tags && this.tags.size?html`
+                    <sl-menu @sl-select="${this.tagSelected}">
+                        ${this.selectedTag?html`<sl-menu-item>
+                            unmark                             
+                        </sl-menu-item>`:nothing}
+                        ${[...this.tags].map(t => html`
+                            <sl-menu-item class="tagMenuItem" type="checkbox"
+                                          ?checked="${t === this.selectedTag}">
+                                ${t}
+                            </sl-menu-item>
+                        `)}
+                    </sl-menu>`
+                    :nothing}
+            </sl-dropdown>`
     }
 
     protected renderToolbar() {
@@ -361,6 +479,11 @@ export class HmLabApp extends KioskApp {
                                           ?checked="${this.layoutOptions.multiColorSelection}">
                                 <i class="fas text-gradient suffix-width" slot="prefix"></i>
                                 multi colour highlighting
+                            </sl-menu-item>
+                            <sl-menu-item data-option="locusTypeStyle" type="checkbox"
+                                          ?checked="${this.layoutOptions.locusTypeStyle === 'label'}">
+                                <i class="fas text-gradient suffix-width" slot="prefix"></i>
+                                show types
                             </sl-menu-item>
                             <sl-divider style="--color: var(--col-bg-1);"></sl-divider>
                             <sl-menu-item data-option="darkMode" type="checkbox">
@@ -386,9 +509,32 @@ export class HmLabApp extends KioskApp {
                                 <i class="fas suffix-width" slot="prefix"></i>
                                 black and white only
                             </sl-menu-item>
+                            <sl-divider style="--color: var(--col-bg-1);"></sl-divider>
+                            <sl-menu-item data-option="rowStyleNone" type="checkbox">
+                                <i class="fas suffix-width" slot="prefix"></i>
+                                don't mark rows
+                            </sl-menu-item>
+                            <sl-menu-item data-option="rowStyleDashedLine" type="checkbox">
+                                <i class="fas suffix-width" slot="prefix"></i>
+                                mark rows with dotted lines
+                            </sl-menu-item>
+                            <sl-menu-item data-option="rowStyleLane" type="checkbox" checked>
+                                <i class="fas suffix-width" slot="prefix"></i>
+                                mark rows with background
+                            </sl-menu-item>
                         </sl-menu>
                     </sl-dropdown>
+                    ${this.renderTagDropdown()}
                 </div>
+                ${this.relationsWithErrors && this.relationsWithErrors.removed.length > 0? html` 
+                    <div class="toolbar-buttons">
+                    <div
+                        class="toolbar-button toolbar-button-red ${(this.showRelationsWithErrors ? `selected` : "")}"
+                        @click="${this.toggleRelationsWithErrors}">
+                        <i class="fas"></i>
+                    </div>
+                </div>`:nothing}
+                
                 <div class="toolbar-buttons">
                     <div
                         class="toolbar-button ${!this.enableZoomControls ? `disabled` : (this.arrowActive ? `selected` : "")}"
@@ -421,10 +567,29 @@ export class HmLabApp extends KioskApp {
             </div>`;
     }
 
+    getRelationInfo(fromNodeId:string, toNodeId: string): LocusRelation {
+        return this.relations.find(function (x) {
+            return x.uid_locus === fromNodeId && x.uid_locus_related === toNodeId
+        })
+    }
+
+    renderRelation(r: [string, string]) {
+        const relationInfo = this.getRelationInfo(r[0], r[1])
+        return html`<div class="removed-relation">${relationInfo.arch_context}</br>${relationInfo.chronology}(${relationInfo.relation_type})</br>${relationInfo.related_arch_context}</div>`
+    }
+
     renderMatrix() {
         return html`
-            <div id="hm-frame" class="hm-frame">
-                <hm-component tabindex="-1" id="hm" @hm-repaint="${this.hmUpdated}"></hm-component>
+            <div class="horizontal-frame ${(this.showRelationsWithErrors && this.relationsWithErrors && this.relationsWithErrors.removed.length > 0)?'hf-2-cols':''}">
+                ${(this.showRelationsWithErrors && this.relationsWithErrors && this.relationsWithErrors.removed.length > 0)?html`
+                    <div class="removed-relations">
+                        <div class="removed-relation-header">Relations that had to be removed because they were contradictory or involved in a cycle.</div>
+                        ${this.relationsWithErrors.removed.map(r => this.renderRelation(r))}
+                    </div>
+                    `:nothing}
+                <div id="hm-frame" class="hm-frame">
+                    <hm-component tabindex="-1" id="hm" @hm-repaint="${this.hmUpdated}"></hm-component>
+                </div>
             </div>
         `;
     }
@@ -498,13 +663,12 @@ export class HmLabApp extends KioskApp {
                         <div class="uicomponent-version">
                             plugin v${html`${(import.meta as any).env.PACKAGE_VERSION}`}
                         </div>
-                        
                     </div>
                 </div>`;
         }
         let toolbar = this.renderToolbar();
         const app = html`${this.renderMatrix()}`;
-        return html`<div class="header-frame">${dev}${toolbar}</div>${app}`;
+        return html`<div class="header-frame">${this.renderProgress()}${this.renderErrors()}${dev}${toolbar}</div>${app}`;
     }
 }
 
