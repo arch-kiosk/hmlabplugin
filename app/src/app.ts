@@ -200,7 +200,10 @@ export class HmLabApp extends KioskApp {
                     if (obj.record_type === "locus") {
                         requestedLocusUID = this.loci.find(x => x.arch_context === obj.identifier).uid
                     }
-                    this.relations = apiResult2Relations(json as ApiResultLocusRelations, this.loci, false, requestedLocusUID, requestedLocusUID === "" ? 0: this.locusRelationDepth)
+                    this.relations = apiResult2Relations(json as ApiResultLocusRelations,
+                        this.loci,
+                        false,
+                        requestedLocusUID)
                     console.log("relations fetched: ", this.relations)
                     this.nonTemporalRelations = []
                     this.hmNodes = [...api2HmNodes(this.relations, this.loci, this.nonTemporalRelations)];
@@ -671,6 +674,8 @@ export class HmLabApp extends KioskApp {
                         </div>
                         <kiosk-context-selector 
                             .apiContext="${this.apiContext}"
+                            .recordTypeAliases="${this.recordTypeAliases}"
+                            .recordTypeFilter="${['unit','locus']}"
                             @closeSelection="${this.selectorClosed}">
                         </kiosk-context-selector>
                         <div class="uicomponent-version">

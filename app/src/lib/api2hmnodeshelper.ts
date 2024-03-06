@@ -73,7 +73,7 @@ export function getChronType(chronType: string, relationType: string) {
 }
 
 export function apiResult2Relations(apiData: ApiResultLocusRelations, loci: Array<Locus>, errorOnUnknownField = false,
-                                    requestedLocusUID="", relationDepth=0) : Array<LocusRelation> {
+                                    requestedLocusUID="") : Array<LocusRelation> {
     const relations: Array<LocusRelation> = []
     const knownFields = ["uid_locus","arch_context","chronology","relation_type",
         "uid_locus_related","uid_sketch","sketch_description","created","modified","modified_by"]
