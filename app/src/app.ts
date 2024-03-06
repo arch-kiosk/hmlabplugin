@@ -81,7 +81,9 @@ export class HmLabApp extends KioskApp {
 
     @state()
     private selectedTag: string;
+
     private relations: Array<LocusRelation> = [];
+    private nonTemporalRelations:Array<LocusRelation> = [];
     private loci: Array<Locus> = [];
 
     @state()
@@ -89,6 +91,7 @@ export class HmLabApp extends KioskApp {
 
     @state()
     private showRelationsWithErrors: boolean = true;
+    private locusRelationDepth: number = 1; // depth of relations if the requested identifier is a locus (instead of a unit)
 
 
     constructor() {
@@ -146,6 +149,21 @@ export class HmLabApp extends KioskApp {
         let hm: HMComponent = this.shadowRoot.querySelector("hm-component");
         this.enableZoomControls = !(!hm || hm.getZoom() == 0);
         this.relationsWithErrors = hm.getAnalysisResults()
+
+        if (!this.relationsWithErrors) {
+            this.relationsWithErrors = {
+                cycles: [],
+                removed: [],
+                removedContemporaries: [],
+                errors: [],
+                result: true
+            }
+        }
+
+        this.nonTemporalRelations.forEach(r => {
+            this.relationsWithErrors.removed.push([r.uid_locus, r.uid_locus_related])
+        })
+
         if (this.relationsWithErrors && this.relationsWithErrors.removed.length > 0)
             this.showRelationsWithErrors = true
     }
@@ -166,25 +184,33 @@ export class HmLabApp extends KioskApp {
             "v1",
             urlSearchParams)
             .then((json: ApiResultLocusRelations) => {
-                this.showProgress = false;
-                if (!json.hasOwnProperty("result") || !json.result) {
-                    this.addAppError("Kiosk reported an error for your request.");
-                    return;
+                try {
+                    this.showProgress = false;
+                    if (!json.hasOwnProperty("result") || !json.result) {
+                        this.addAppError("Kiosk reported an error for your request.");
+                        return;
+                    }
+                    if (!json.hasOwnProperty("relations") || json.relations.length == 0) {
+                        this.addAppError("Kiosk did not come up with any stratigraphic data for your request.");
+                        return;
+                    }
+                    this.loci = apiResult2Loci(json as ApiResultLocusRelations)
+                    console.log("locus information fetched: ", this.loci)
+                    let requestedLocusUID = ""
+                    if (obj.record_type === "locus") {
+                        requestedLocusUID = this.loci.find(x => x.arch_context === obj.identifier).uid
+                    }
+                    this.relations = apiResult2Relations(json as ApiResultLocusRelations, this.loci, false, requestedLocusUID, requestedLocusUID === "" ? 0: this.locusRelationDepth)
+                    console.log("relations fetched: ", this.relations)
+                    this.nonTemporalRelations = []
+                    this.hmNodes = [...api2HmNodes(this.relations, this.loci, this.nonTemporalRelations)];
+                    // this.hmNodes = [...debugApi2HmNodes(this.relations, this.loci)];
+                    this.tags = this.loadTags()
+                    console.log("tags", this.tags)
+                    console.log(`relations fetched for ${obj.identifier}:`, this.hmNodes);
+                } catch (e) {
+                    handleCommonFetchErrors(this, e, "(loadConstants) Error when processing results from Kiosk: ", null)
                 }
-                if (!json.hasOwnProperty("relations") || json.relations.length == 0) {
-                    this.addAppError("Kiosk did not come up with any stratigraphic data for your request.");
-                    return;
-                }
-                this.loci = apiResult2Loci(json as ApiResultLocusRelations)
-                console.log("locus information fetched: ", this.loci)
-                this.relations = apiResult2Relations(json as ApiResultLocusRelations, this.loci)
-                console.log("relations fetched: ", this.relations)
-                this.hmNodes = [...api2HmNodes(this.relations, this.loci)];
-                // this.hmNodes = [...debugApi2HmNodes(this.relations, this.loci)];
-                this.tags = this.loadTags()
-                console.log("tags", this.tags)
-
-                console.log(`relations fetched for ${obj.identifier}:`, this.hmNodes);
             })
             .catch((e: FetchException) => {
                 this.showProgress = false;
@@ -575,7 +601,12 @@ export class HmLabApp extends KioskApp {
 
     renderRelation(r: [string, string]) {
         const relationInfo = this.getRelationInfo(r[0], r[1])
-        return html`<div class="removed-relation">${relationInfo.arch_context}</br>${relationInfo.chronology}(${relationInfo.relation_type})</br>${relationInfo.related_arch_context}</div>`
+        if (relationInfo) {
+            return html`
+                <div class="removed-relation">${relationInfo.arch_context}</br>${relationInfo.chronology?relationInfo.chronology:html`<i></i> non-temporal`}
+                    (${relationInfo.relation_type?relationInfo.relation_type:"?"})</br>${relationInfo.related_arch_context}
+                </div>`
+        } else return nothing
     }
 
     renderMatrix() {
@@ -583,7 +614,7 @@ export class HmLabApp extends KioskApp {
             <div class="horizontal-frame ${(this.showRelationsWithErrors && this.relationsWithErrors && this.relationsWithErrors.removed.length > 0)?'hf-2-cols':''}">
                 ${(this.showRelationsWithErrors && this.relationsWithErrors && this.relationsWithErrors.removed.length > 0)?html`
                     <div class="removed-relations">
-                        <div class="removed-relation-header">Relations that had to be removed because they were contradictory or involved in a cycle.</div>
+                        <div class="removed-relation-header">Removed relations that were part of a cycle or non-temporal</div>
                         ${this.relationsWithErrors.removed.map(r => this.renderRelation(r))}
                     </div>
                     `:nothing}

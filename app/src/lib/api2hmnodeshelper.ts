@@ -72,7 +72,8 @@ export function getChronType(chronType: string, relationType: string) {
     return chronType
 }
 
-export function apiResult2Relations(apiData: ApiResultLocusRelations, loci: Array<Locus>, errorOnUnknownField = false) : Array<LocusRelation> {
+export function apiResult2Relations(apiData: ApiResultLocusRelations, loci: Array<Locus>, errorOnUnknownField = false,
+                                    requestedLocusUID="", relationDepth=0) : Array<LocusRelation> {
     const relations: Array<LocusRelation> = []
     const knownFields = ["uid_locus","arch_context","chronology","relation_type",
         "uid_locus_related","uid_sketch","sketch_description","created","modified","modified_by"]
@@ -108,7 +109,8 @@ export function apiResult2Relations(apiData: ApiResultLocusRelations, loci: Arra
                 }
             }
         })
-        relations.push(locusRelation)
+        if (requestedLocusUID === "" || locusRelation.uid_locus === requestedLocusUID || locusRelation.uid_locus_related === requestedLocusUID)
+            relations.push(locusRelation)
     })
 
     return relations
@@ -151,10 +153,11 @@ export function amendMissingLocusRelations(relations: Array<LocusRelation>) {
 
 }
 
-export function api2HmNodes(relations: Array<LocusRelation>, loci: Array<Locus>) {
+export function api2HmNodes(relations: Array<LocusRelation>, loci: Array<Locus>, nonTemporalRelations: Array<LocusRelation>) {
     const nodes: Map<string, hmNode> = new Map()
 
-    amendMissingLocusRelations(relations)
+    //todo:
+    //amendMissingLocusRelations(relations)
 
     for (const apiRecord of relations) {
         const locusUID = apiRecord.uid_locus
@@ -181,6 +184,8 @@ export function api2HmNodes(relations: Array<LocusRelation>, loci: Array<Locus>)
                 else
                     node.contemporaries.push(uidRelatedLocus)
             }
+        } else {
+            if (chronType === "") nonTemporalRelations.push(apiRecord)
         }
     }
     return nodes.values()
@@ -192,7 +197,8 @@ export function debugApi2HmNodes(relations: Array<LocusRelation>, loci: Array<Lo
         return loci.find(l => l.uid === uid).arch_context
     }
 
-    amendMissingLocusRelations(relations)
+    //todo:
+    //amendMissingLocusRelations(relations)
 
     for (const apiRecord of relations) {
         const locusUID = apiRecord.arch_context
