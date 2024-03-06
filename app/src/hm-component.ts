@@ -763,6 +763,36 @@ export class HMComponent extends LitElement {
         });
     }
 
+    _calculateMaxNodeWidth() {
+        let maxEdges = 0
+        let maxIdentifierWidth = 0
+        let maxWidth = this.nodeWidth
+
+        const el: HTMLCanvasElement = <HTMLCanvasElement>this.shadowRoot?.getElementById("c");
+        const canvas = el.getContext("2d")
+        canvas.font = "16px" + this.cssFontFamily
+
+        this.hmNodes.forEach(n => {
+            const textMetrics = canvas.measureText(n.name + "QQ") // the QQ takes care of the locus type marker on the left of each node
+            if (textMetrics.width > maxIdentifierWidth) {
+                maxIdentifierWidth = textMetrics.width
+            }
+
+            if (!n.dummyNode) {
+                if (n.inEdges.length > maxEdges)
+                    maxEdges = n.inEdges.length
+                if (n.outEdges.length > maxEdges)
+                    maxEdges = n.outEdges.length
+            }
+        })
+
+        const maxEdgesWidth = maxEdges * this.laneWidth + this.laneWidth
+        if (maxEdgesWidth > maxWidth) maxWidth = maxEdgesWidth
+        if (maxIdentifierWidth > maxWidth) maxWidth = maxIdentifierWidth
+        this.nodeWidth = maxWidth
+
+    }
+
     _calculateWidthsPerColumn() {
         let usedColumns = new Map();
         let maxColumn = 0;
@@ -924,6 +954,7 @@ export class HMComponent extends LitElement {
         let y = 0;
 
         this._calculateMaxLanesPerRow();
+        this._calculateMaxNodeWidth();
         this._calculateWidthsPerColumn();
         lastRowNr = -1;
         row = 0;
