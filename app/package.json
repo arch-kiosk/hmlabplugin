@@ -2,7 +2,7 @@
   "name": "hmlabapp",
   "description": "Kiosk Harris Matrix Lab",
   "private": true,
-  "version": "0.10",
+  "version": "0.11",
   "type": "module",
   "main": "dist/hmlabapp.es.js",
   "exports": {

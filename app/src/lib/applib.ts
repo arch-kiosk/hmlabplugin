@@ -252,7 +252,7 @@ export function RGBAToHSL(rgba: RGBAColor) {
     ];
 }
 
-function HSLToRGB(h: number, s: number, l: number): RGBColor {
+export function HSLToRGB(h: number, s: number, l: number): RGBColor {
     s /= 100;
     l /= 100;
     const k = (n: number) => (n + h / 30) % 12;
@@ -263,7 +263,7 @@ function HSLToRGB(h: number, s: number, l: number): RGBColor {
 }
 
 
-function HSBToRGB(h: number, s: number, b: number):[number, number, number] {
+export function HSBToRGB(h: number, s: number, b: number):[number, number, number] {
     s /= 100;
     b /= 100;
     const k = (n: number) => (n + h / 60) % 6;

@@ -64,7 +64,7 @@ if "mcpcore.mcpworker" not in sys.modules:
 
 
     def register_index(app):
-        app.add_url_rule('/', 'get_index', query_and_view_index)
+        app.add_url_rule('/', 'get_index', hm_lab_index)
 
 
     def register_menus():
@@ -72,9 +72,9 @@ if "mcpcore.mcpworker" not in sys.modules:
         return [KioskMenuItem(name="Harris Matrix Lab",
                               onclick="triggerModule('hmlab.hm_lab_show')",
                               endpoint="hmlab.hm_lab_show",
-                              # is_active=lambda: current_user.fulfills_requirement(
-                              #     ENTER_ADMINISTRATION_PRIVILEGE) if hasattr(current_user,
-                              #                                                "fulfills_requirement") else True,
+                              is_active=lambda: current_user.fulfills_requirement(
+                                  ENTER_ADMINISTRATION_PRIVILEGE) if hasattr(current_user,
+                                                                             "fulfills_requirement") else True,
                               menu_cfg=plugin.get_menu_config(),
                               order="zzz"),
                 ]

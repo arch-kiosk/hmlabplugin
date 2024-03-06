@@ -21,7 +21,7 @@ import {
     RGBAColor,
     RGBToHex,
     RGBAToHexA,
-    hexToRGB, RGBStrToRGB, RGBToHSB, increase_lightness, RGBAToHSL, getCSSVar,
+    hexToRGB, RGBStrToRGB, RGBToHSB, increase_lightness, RGBAToHSL, getCSSVar, HSLToRGB,
 } from "./lib/applib";
 import { AnyDict } from "./lib/hmlabtypes";
 
@@ -89,6 +89,8 @@ export class HMComponent extends LitElement {
     private nodeColorDarker: RGBAColor;
     private nodeTextColor: RGBAColor;
     private nodeColorAccent: RGBAColor;
+    private nodeColorTagged: RGBAColor;
+    private nodeTextColorTagged: RGBAColor;
     private nodeAccentTextColor: RGBAColor;
 
     private nodeColorAlert: string;
@@ -215,6 +217,8 @@ export class HMComponent extends LitElement {
         this.nodeColorDarker = getCSSVarColor("--col-bg-1-darker", this);
         this.nodeTextColor = getCSSVarColor("--col-primary-bg-1", this);
         this.nodeColorAccent = getCSSVarColor("--col-bg-att", this);
+        this.nodeColorTagged = getCSSVarColor("--col-bg-ack", this);
+        this.nodeTextColorTagged = getCSSVarColor("--col-primary-bg-ack", this);
         this.nodeAccentTextColor = getCSSVarColor("--col-primary-bg-att", this);
         this.nodeLocusTypeTextColor = getCSSVar("--col-primary-bg-2", this);
         this.nodeLocusTypeAccent = getCSSVar("--col-accent-bg-2", this);
@@ -1853,10 +1857,8 @@ export class HMComponent extends LitElement {
             return this.nodeWidth;
         } else {
             let group: Array<fabric.Object> = [];
-            let fill = RGBToHex(node != this.selectedNode ? this.nodeColor : this.nodeColorAccent);
-            let locusType = node.locusType;
-            let fill2 = this._getLocusTypeColor(locusType);
-            this._drawLocusNodeProper(group, fill2, node, locusType, fill);
+
+            this._drawLocusNodeProper(group, node);
 
             if (this.layoutOption("markContemporaries", true)) {
                 if (node.leftContemporary) {
@@ -1926,11 +1928,26 @@ export class HMComponent extends LitElement {
         }
     }
 
-    private _drawLocusNodeProper(group: Array<Object>, typeFill: string, node: hmNode, locusType: string, fill: string) {
-        locusType = locusType?[...locusType.toUpperCase().substring(0, 2)].join("\n"):"?\n?"
-        let bwMode = this.layoutOption("displayMode", "lightMode") === "blackWhiteMode";
-        let showLocusStyles = this.layoutOption("locusTypeStyle", "") === "label";
 
+    private _drawLocusNodeProper(group: Array<Object>, node: hmNode) {
+        let nodeColor = this.nodeColor
+        let bwMode = this.layoutOption("displayMode", "lightMode") === "blackWhiteMode";
+        let nodeTextColor = RGBToHex(this.nodeTextColor)
+        let nodeColorBorder = RGBToHex(node != this.selectedNode ? this.nodeColorDarker : this.nodeColorAccent)
+        if (!bwMode && this.selectedTag && node.tags.find(x => x === this.selectedTag)) {
+            nodeColor = this.nodeColorTagged
+            nodeTextColor = RGBToHex(this.nodeTextColorTagged)
+            const colorBorder = RGBAToHSL(nodeColor)
+            colorBorder[2] *= .8
+            nodeColorBorder = RGBToHex(HSLToRGB(colorBorder[0], colorBorder[1], colorBorder[2]))
+        }
+        nodeTextColor = node === this.selectedNode ? RGBToHex(this.nodeAccentTextColor) : nodeTextColor
+
+        let nodeFill = RGBToHex(node != this.selectedNode ? nodeColor : this.nodeColorAccent);
+        let locusType = node.locusType;
+        let typeFill = this._getLocusTypeColor(locusType);
+        locusType = locusType?[...locusType.toUpperCase().substring(0, 2)].join("\n"):"?\n?"
+        let showLocusStyles = this.layoutOption("locusTypeStyle", "") === "label";
 
         group.push(new fabric.Rect({
             // left: origin[0],
@@ -1939,8 +1956,8 @@ export class HMComponent extends LitElement {
             // originY: "center",
             left: 0,
             top: 0,
-            fill: fill,
-            stroke: RGBToHex(node != this.selectedNode ? this.nodeColorDarker : this.nodeColorAccent),
+            fill: nodeFill,
+            stroke: nodeColorBorder,
             strokeWidth: 3,
             width: this.nodeWidth,
             height: this.nodeHeight,
@@ -1949,9 +1966,9 @@ export class HMComponent extends LitElement {
             ry: 5,
         }));
 
-        if (!bwMode && this.selectedTag && node.tags.find(x => x === this.selectedTag)) {
-            this._drawtagMarker(group, fill, node);
-        }
+        // if (!bwMode && this.selectedTag && node.tags.find(x => x === this.selectedTag)) {
+        //     this._drawtagMarker(group, fill, node);
+        // }
 
         let text = new fabric.Textbox(node.name || node.id, {
             // left: origin[0],
@@ -1959,7 +1976,7 @@ export class HMComponent extends LitElement {
             left: showLocusStyles?30:2,
             // top: this.nodeHeight * this.scale / 2 - this.fontHeight * this.scale / 2,
             top: 3,
-            stroke: RGBToHex(node != this.selectedNode ? this.nodeTextColor : this.nodeAccentTextColor),
+            stroke: nodeTextColor,
             // originX: "center",
             // originY: "center",
             fontSize: 16,
