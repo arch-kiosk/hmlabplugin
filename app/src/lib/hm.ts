@@ -5,6 +5,11 @@ import { Edge, graphlib } from "dagre";
 import Graph = graphlib.Graph;
 import { dumbHashCode, inDevelopmentMode } from "./applib";
 
+export const ERR_CONTRADICTION = 1
+export const ERR_CYCLE = 2
+export const ERR_NON_TEMPORAL_RELATION = 3
+export const ERR_MULTIPLE = 4
+
 export type Point = {
     x: number
     y: number
@@ -16,8 +21,8 @@ export type HMCycle = {
 }
 export type HMAnalysisResult = {
     cycles: Array<HMCycle>
-    removed: Array<[string, string]>
-    removedContemporaries: Array<[string, string]>
+    removed: Array<[string, string, number]> //locus_uid, related_locus_uid, error_type
+    // removedContemporaries: Array<[string, string]>
     result: boolean
     errors: Array<string>
 }
@@ -176,7 +181,7 @@ function analyzeAndSolveComplexCycles(nodes: Array<hmNode>, result: HMAnalysisRe
                 solveCycle.splice(0, 1);
                 // result.errors.push(`Error: Cannot find a relation that keeps locus ${_findNode(node1)} in a cycle. Matrix cannot be rendered.`)
             } else {
-                addRemovedRelation(result.removed, [node1, foundNode]);
+                addRemovedRelation(result.removed, [node1, foundNode, ERR_CYCLE]);
             }
             g = hmNodes2Graph(nodes);
             const newCycles = graphlib.alg.findCycles(g);
@@ -204,7 +209,7 @@ function analyzeAndSolveComplexCycles(nodes: Array<hmNode>, result: HMAnalysisRe
 export function findContemporaryCycles(nodes: Array<hmNode>) {
     let g = hmNodes2Graph(nodes);
     let topNodes = getTopNodes(g, false);
-    let droppedRelations: Array<[string, string]> = [];
+    let droppedRelations: Array<[string, string, number]> = [];
     let cycles: Array<HMCycle> = [];
     let startMS = Date.now()
 
@@ -243,13 +248,13 @@ export function findContemporaryCycles(nodes: Array<hmNode>) {
                         if (idxFirstVisit > -1) {
                             cycles.push({ originalCycle: stack.slice(idxFirstVisit, stack.length), solved: true });
                         } else {
-                            console.log(`something wrong with the stack: ${collisionNodeId} caused a cycle but was not on it.`);
+                            console.error(`something wrong with the stack: ${collisionNodeId} caused a cycle but was not on it.`);
                         }
-                        droppedRelations.push([nodeId, contemporary]);
+                        droppedRelations.push([nodeId, contemporary, ERR_CYCLE]);
                         node.contemporaries.splice(node.contemporaries.findIndex(x => x === contemporary), 1);
                         let toNode = findNode(nodes, contemporary)
                         toNode.contemporaries.splice(toNode.contemporaries.findIndex(x => x === nodeId), 1);
-                        droppedRelations.push([contemporary, nodeId]);
+                        droppedRelations.push([contemporary, nodeId, ERR_CYCLE]);
                     }
                 }
             }
@@ -277,7 +282,7 @@ export function findContemporaryCycles(nodes: Array<hmNode>) {
     };
 }
 
-function addRemovedRelation(removedRelations: Array<[string, string]>, relation: [string, string]) {
+function addRemovedRelation(removedRelations: Array<[string, string, number]>, relation: [string, string, number]) {
     if (!removedRelations.find(rel => rel[0] === relation[0] && rel[1] === relation[1]))
         removedRelations.push(relation);
 }
@@ -287,7 +292,7 @@ export function analyzeRelations(nodes: Array<hmNode>) {
         cycles: [],
         result: false,
         removed: [],
-        removedContemporaries: [],
+        // removedContemporaries: [],
         errors: [],
     };
 
@@ -296,29 +301,29 @@ export function analyzeRelations(nodes: Array<hmNode>) {
         earlier.forEach(toNodeId => {
             const toNode = findNode(nodes, toNodeId);
             if (toNode.earlierNodes.find(fromNodeId => fromNodeId === node.id)) {
-                addRemovedRelation(result.removed, [node.id, toNode.id]);
-                addRemovedRelation(result.removed, [toNode.id, node.id]);
-                if (removeEdge(nodes, node.id, toNode.id)) result.removed.push([node.id, toNode.id]);
-                if (removeEdge(nodes, toNode.id, node.id)) result.removed.push([toNode.id, node.id]);
+                addRemovedRelation(result.removed, [node.id, toNode.id, ERR_CONTRADICTION]);
+                addRemovedRelation(result.removed, [toNode.id, node.id, ERR_CONTRADICTION]);
+                if (removeEdge(nodes, node.id, toNode.id)) result.removed.push([node.id, toNode.id, ERR_CONTRADICTION]);
+                if (removeEdge(nodes, toNode.id, node.id)) result.removed.push([toNode.id, node.id, ERR_CONTRADICTION]);
             }
             if (toNode.contemporaries.find(fromNodeId => fromNodeId === node.id)) {
-                addRemovedRelation(result.removedContemporaries, [toNode.id, node.id]);
-                if (removeEdge(nodes, toNode.id, node.id, true)) result.removed.push([toNode.id, node.id]);
+                addRemovedRelation(result.removed, [toNode.id, node.id, ERR_CONTRADICTION]);
+                if (removeEdge(nodes, toNode.id, node.id, true)) result.removed.push([toNode.id, node.id, ERR_CONTRADICTION]);
             }
         });
         const contemporaries = [...node.contemporaries];
         contemporaries.forEach(toNodeId => {
             const toNode = findNode(nodes, toNodeId);
             if (toNode.earlierNodes.find(fromNodeId => fromNodeId === node.id)) {
-                addRemovedRelation(result.removedContemporaries, [toNode.id, node.id]);
-                if (removeEdge(nodes, node.id, toNode.id, true)) result.removed.push([node.id, toNode.id]);
+                addRemovedRelation(result.removed, [toNode.id, node.id, ERR_CONTRADICTION]);
+                if (removeEdge(nodes, node.id, toNode.id, true)) result.removed.push([node.id, toNode.id, ERR_CONTRADICTION]);
             }
         });
     });
 
     analyzeAndSolveComplexCycles(nodes, result);
     console.log(`Analyzing graph lead to ${result.cycles.length} chronological cycles.`)
-    const removedRelations: Array<[string, string]> = []
+    const removedRelations: Array<[string, string, number]> = []
     result.removed.forEach(rel => {
         if (!removedRelations.find(x => rel[0] === x[0] && rel[1] === x[1]))
             removedRelations.push(rel)
@@ -327,7 +332,7 @@ export function analyzeRelations(nodes: Array<hmNode>) {
 
     const conResult = findContemporaryCycles(nodes);
     console.log(`Analyzing graph lead to ${conResult.cycles.length} contemporary cycles.`)
-    result.removedContemporaries = [...conResult.droppedRelations, ...result.removedContemporaries];
+    result.removed = [...conResult.droppedRelations, ...result.removed];
     result.cycles = [...conResult.cycles, ...result.cycles];
 
     return result;

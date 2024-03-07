@@ -180,6 +180,7 @@ sl-button.sl-bt-toolbar::part(base)
 
 
 .removed-relations
+  position: relative
   background-color: $col-bg-1
   border: 3px solid $col-bg-1-darker
   padding: 3px
@@ -191,5 +192,11 @@ sl-button.sl-bt-toolbar::part(base)
   background-color: $col-bg-1-lighter
   margin-bottom: 20px
   font-family: $monospace
+  position: sticky
+  top: 0px
 .removed-relation
   border-bottom: 2px solid $col-bg-1-darker
+  i
+    color: $col-error-bg-1
+    display: inline-block
+    margin-right: .5em

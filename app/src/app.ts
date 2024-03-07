@@ -17,10 +17,10 @@ import {
     api2HmNodes,
     apiResult2Loci,
     apiResult2Relations,
-    ApiResultLocusRelations, debugApi2HmNodes, Locus,
+    ApiResultLocusRelations, debugApi2HmNodes, DroppedRelation, getChronType, Locus,
     LocusRelation,
 } from "./lib/api2hmnodeshelper";
-import { HMAnalysisResult, hmNode } from "./lib/hm";
+import { ERR_CONTRADICTION, ERR_NON_TEMPORAL_RELATION, HMAnalysisResult, hmNode } from "./lib/hm";
 // import { getFACase, getAACase, getTestCase1, getTestCase2 } from "../test/data/testdata";
 import { HMComponent } from "./hm-component";
 import "@shoelace-style/shoelace/dist/components/dropdown/dropdown.js";
@@ -83,7 +83,7 @@ export class HmLabApp extends KioskApp {
     private selectedTag: string;
 
     private relations: Array<LocusRelation> = [];
-    private nonTemporalRelations:Array<LocusRelation> = [];
+    private droppedLocusRelations:Array<DroppedRelation> = [];
     private loci: Array<Locus> = [];
 
     @state()
@@ -154,15 +154,15 @@ export class HmLabApp extends KioskApp {
             this.relationsWithErrors = {
                 cycles: [],
                 removed: [],
-                removedContemporaries: [],
+                // removedContemporaries: [],
                 errors: [],
                 result: true
             }
         }
 
-        this.nonTemporalRelations.forEach(r => {
-            this.relationsWithErrors.removed.push([r.uid_locus, r.uid_locus_related])
-        })
+        // this.droppedLocusRelations.forEach(r => {
+        //     this.relationsWithErrors.removed.push([r.locusRelation.uid_locus, r.locusRelation.uid_locus_related, r.reason])
+        // })
 
         if (this.relationsWithErrors && this.relationsWithErrors.removed.length > 0)
             this.showRelationsWithErrors = true
@@ -205,8 +205,8 @@ export class HmLabApp extends KioskApp {
                         false,
                         requestedLocusUID)
                     console.log("relations fetched: ", this.relations)
-                    this.nonTemporalRelations = []
-                    this.hmNodes = [...api2HmNodes(this.relations, this.loci, this.nonTemporalRelations)];
+                    this.droppedLocusRelations = []
+                    this.hmNodes = [...api2HmNodes(this.relations, this.loci, this.droppedLocusRelations)];
                     // this.hmNodes = [...debugApi2HmNodes(this.relations, this.loci)];
                     this.tags = this.loadTags()
                     console.log("tags", this.tags)
@@ -493,6 +493,8 @@ export class HmLabApp extends KioskApp {
     }
 
     protected renderToolbar() {
+        const hasRelationsWithErrors = this.relationsWithErrors && this.relationsWithErrors.removed.length > 0
+        const hasDroppedRelations = this.droppedLocusRelations && this.droppedLocusRelations.length > 0
         return html`
             <div class="toolbar">
                 <div id="toolbar-left">
@@ -555,7 +557,7 @@ export class HmLabApp extends KioskApp {
                     </sl-dropdown>
                     ${this.renderTagDropdown()}
                 </div>
-                ${this.relationsWithErrors && this.relationsWithErrors.removed.length > 0? html` 
+                ${hasRelationsWithErrors || hasDroppedRelations? html` 
                     <div class="toolbar-buttons">
                     <div
                         class="toolbar-button toolbar-button-red ${(this.showRelationsWithErrors ? `selected` : "")}"
@@ -602,23 +604,52 @@ export class HmLabApp extends KioskApp {
         })
     }
 
-    renderRelation(r: [string, string]) {
+    renderRelation(r: [string, string, number]) {
         const relationInfo = this.getRelationInfo(r[0], r[1])
         if (relationInfo) {
             return html`
-                <div class="removed-relation">${relationInfo.arch_context}</br>${relationInfo.chronology?relationInfo.chronology:html`<i></i> non-temporal`}
+                <div class="removed-relation">${relationInfo.arch_context}</br>
+                    ${r[2] === ERR_NON_TEMPORAL_RELATION?html`<i></i> non-temporal`:
+                      (r[2] === ERR_CONTRADICTION?
+                          html`<i></i>${getChronType(relationInfo.chronology,relationInfo.relation_type)}`:
+                          html`<i></i>${getChronType(relationInfo.chronology,relationInfo.relation_type)}`
+                      )
+                    }
                     (${relationInfo.relation_type?relationInfo.relation_type:"?"})</br>${relationInfo.related_arch_context}
                 </div>`
         } else return nothing
     }
 
+    renderDroppedRelation(r: DroppedRelation) {
+        if (r.locusRelation) {
+            return html`
+                <div class="removed-relation">${r.locusRelation.arch_context}</br>
+                    ${r.reason === ERR_NON_TEMPORAL_RELATION
+                        ? html`<i></i> non-temporal (${r.locusRelation.relation_type})`
+                        : html`<i></i>${getChronType(r.locusRelation.chronology, r.locusRelation.relation_type)} (${r.locusRelation.relation_type})`
+                    }
+                    </br>${r.locusRelation.related_arch_context}
+                    
+                </div>`
+        } else return nothing;
+    }
+
     renderMatrix() {
+        const hasRelationsWithErrors = this.relationsWithErrors && this.relationsWithErrors.removed.length > 0
+        const hasDroppedRelations = this.droppedLocusRelations && this.droppedLocusRelations.length > 0
+
         return html`
-            <div class="horizontal-frame ${(this.showRelationsWithErrors && this.relationsWithErrors && this.relationsWithErrors.removed.length > 0)?'hf-2-cols':''}">
-                ${(this.showRelationsWithErrors && this.relationsWithErrors && this.relationsWithErrors.removed.length > 0)?html`
+            <div class="horizontal-frame ${(this.showRelationsWithErrors && (hasRelationsWithErrors || hasDroppedRelations))?'hf-2-cols':''}">
+                ${(this.showRelationsWithErrors && (hasRelationsWithErrors || hasDroppedRelations))?html`
                     <div class="removed-relations">
-                        <div class="removed-relation-header">Removed relations that were part of a cycle or non-temporal</div>
+                        ${hasRelationsWithErrors?html`
+                        <div class="removed-relation-header">Removed relations that were part of a cycle or contradictory</div>
                         ${this.relationsWithErrors.removed.map(r => this.renderRelation(r))}
+                        `:nothing}
+                        ${hasDroppedRelations?html`
+                        <div class="removed-relation-header">relations, dropped for other reasons</div>
+                        ${this.droppedLocusRelations.map(r => this.renderDroppedRelation(r))}
+                        `:nothing}
                     </div>
                     `:nothing}
                 <div id="hm-frame" class="hm-frame">

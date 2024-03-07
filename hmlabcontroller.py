@@ -9,7 +9,7 @@ from kiosklib import nocache
 _plugin_name_ = "hmlabplugin"
 _controller_name_ = "hmlab"
 _url_prefix_ = '/' + _controller_name_
-plugin_version = "0.11"
+plugin_version = "0.13"
 
 LOCAL_PRIVILEGES = {
     EDIT_WORKSTATION_PRIVILEGE: "edit workstation",

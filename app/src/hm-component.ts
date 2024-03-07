@@ -342,7 +342,7 @@ export class HMComponent extends LitElement {
             }
             console.log("solved cycle " + logStr)
         }
-        for (let r of result.removedContemporaries) {
+        for (let r of result.removed) {
             console.log(`removed relation ${findNode(this.hmNodes, r[0]).name}<->${findNode(this.hmNodes, r[1]).name}`)
         }
         console.log("Analyze relations returned", result)
@@ -773,7 +773,7 @@ export class HMComponent extends LitElement {
         canvas.font = "16px" + this.cssFontFamily
 
         this.hmNodes.forEach(n => {
-            const textMetrics = canvas.measureText(n.name + "QQ") // the QQ takes care of the locus type marker on the left of each node
+            const textMetrics = canvas.measureText(n.name + "QQQQ") // the QQ takes care of the locus type marker on the left of each node
             if (textMetrics.width > maxIdentifierWidth) {
                 maxIdentifierWidth = textMetrics.width
             }
