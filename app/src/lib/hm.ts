@@ -9,6 +9,7 @@ export const ERR_CONTRADICTION = 1
 export const ERR_CYCLE = 2
 export const ERR_NON_TEMPORAL_RELATION = 3
 export const ERR_MULTIPLE = 4
+export const ERR_FAULTY = 5
 
 export type Point = {
     x: number

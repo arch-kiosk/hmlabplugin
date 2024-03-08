@@ -20,7 +20,7 @@ import {
     ApiResultLocusRelations, debugApi2HmNodes, DroppedRelation, getChronType, Locus,
     LocusRelation,
 } from "./lib/api2hmnodeshelper";
-import { ERR_CONTRADICTION, ERR_NON_TEMPORAL_RELATION, HMAnalysisResult, hmNode } from "./lib/hm";
+import { ERR_CONTRADICTION, ERR_FAULTY, ERR_NON_TEMPORAL_RELATION, HMAnalysisResult, hmNode } from "./lib/hm";
 // import { getFACase, getAACase, getTestCase1, getTestCase2 } from "../test/data/testdata";
 import { HMComponent } from "./hm-component";
 import "@shoelace-style/shoelace/dist/components/dropdown/dropdown.js";
@@ -33,6 +33,7 @@ import { setBasePath } from "@shoelace-style/shoelace/dist/utilities/base-path.j
 import { SlMenuItem } from "@shoelace-style/shoelace";
 import { KioskContextSelector } from "kioskuicomponents/kioskuicomponents";
 import { AnyDict, Constant, fetchConstants, getRecordTypeAliases } from "kiosktsapplib";
+import { sendMessage } from "./lib/appmessaging";
 
 setBasePath("/static/sl_assets");
 
@@ -194,25 +195,38 @@ export class HmLabApp extends KioskApp {
                         this.addAppError("Kiosk did not come up with any stratigraphic data for your request.");
                         return;
                     }
-                    this.loci = apiResult2Loci(json as ApiResultLocusRelations)
-                    console.log("locus information fetched: ", this.loci)
+                    try {
+                        this.loci = apiResult2Loci(json as ApiResultLocusRelations)
+                        console.log("locus information fetched: ", this.loci)
+                    } catch (e) {
+                        throw `Error when loading the locus information received from Kiosk: ${e}.`;
+                    }
                     let requestedLocusUID = ""
                     if (obj.record_type === "locus") {
                         requestedLocusUID = this.loci.find(x => x.arch_context === obj.identifier).uid
                     }
-                    this.relations = apiResult2Relations(json as ApiResultLocusRelations,
-                        this.loci,
-                        false,
-                        requestedLocusUID)
-                    console.log("relations fetched: ", this.relations)
+                    try {
+                        this.relations = apiResult2Relations(json as ApiResultLocusRelations,
+                            this.loci,
+                            false,
+                            requestedLocusUID)
+                        console.log("relations fetched: ", this.relations)
+                    } catch (e) {
+                        throw `Error when loading the stratigraphic information received from Kiosk: ${e}.`;
+                    }
                     this.droppedLocusRelations = []
-                    this.hmNodes = [...api2HmNodes(this.relations, this.loci, this.droppedLocusRelations)];
+                    try {
+                        this.hmNodes = [...api2HmNodes(this.relations, this.loci, this.droppedLocusRelations)];
+                    } catch(e) {
+                        throw `Error when processing the information received from Kiosk: ${e}.`;
+                    }
                     // this.hmNodes = [...debugApi2HmNodes(this.relations, this.loci)];
                     this.tags = this.loadTags()
                     console.log("tags", this.tags)
                     console.log(`relations fetched for ${obj.identifier}:`, this.hmNodes);
                 } catch (e) {
-                    handleCommonFetchErrors(this, e, "(loadConstants) Error when processing results from Kiosk: ", null)
+                    sendMessage(this, "Application Error",
+                        `(load_matrix) ${e}.`);
                 }
             })
             .catch((e: FetchException) => {
@@ -609,13 +623,11 @@ export class HmLabApp extends KioskApp {
         if (relationInfo) {
             return html`
                 <div class="removed-relation">${relationInfo.arch_context}</br>
-                    ${r[2] === ERR_NON_TEMPORAL_RELATION?html`<i></i> non-temporal`:
-                      (r[2] === ERR_CONTRADICTION?
+                    ${r[2] == ERR_CONTRADICTION?
                           html`<i></i>${getChronType(relationInfo.chronology,relationInfo.relation_type)}`:
                           html`<i></i>${getChronType(relationInfo.chronology,relationInfo.relation_type)}`
-                      )
                     }
-                    (${relationInfo.relation_type?relationInfo.relation_type:"?"})</br>${relationInfo.related_arch_context}
+                    (${relationInfo.relation_type?relationInfo.relation_type:"?"})</br>${relationInfo.related_arch_context===""?"?":relationInfo.related_arch_context}
                 </div>`
         } else return nothing
     }
@@ -624,12 +636,11 @@ export class HmLabApp extends KioskApp {
         if (r.locusRelation) {
             return html`
                 <div class="removed-relation">${r.locusRelation.arch_context}</br>
-                    ${r.reason === ERR_NON_TEMPORAL_RELATION
-                        ? html`<i></i> non-temporal (${r.locusRelation.relation_type})`
+                    ${(r.reason == ERR_NON_TEMPORAL_RELATION || r. reason == ERR_FAULTY)
+                        ? html`<i></i> ${r.reason === ERR_NON_TEMPORAL_RELATION?"non-temporal":"faulty"}`
                         : html`<i></i>${getChronType(r.locusRelation.chronology, r.locusRelation.relation_type)} (${r.locusRelation.relation_type})`
                     }
-                    </br>${r.locusRelation.related_arch_context}
-                    
+                    </br>${r.locusRelation.related_arch_context===""?"?":r.locusRelation.related_arch_context}
                 </div>`
         } else return nothing;
     }
@@ -647,7 +658,7 @@ export class HmLabApp extends KioskApp {
                         ${this.relationsWithErrors.removed.map(r => this.renderRelation(r))}
                         `:nothing}
                         ${hasDroppedRelations?html`
-                        <div class="removed-relation-header">relations, dropped for other reasons</div>
+                        <div class="removed-relation-header">relations with missing information</div>
                         ${this.droppedLocusRelations.map(r => this.renderDroppedRelation(r))}
                         `:nothing}
                     </div>

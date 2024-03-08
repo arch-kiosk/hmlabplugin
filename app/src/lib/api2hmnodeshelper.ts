@@ -1,4 +1,4 @@
-import { ERR_MULTIPLE, ERR_NON_TEMPORAL_RELATION, hmNode } from "./hm";
+import { ERR_FAULTY, ERR_MULTIPLE, ERR_NON_TEMPORAL_RELATION, hmNode } from "./hm";
 import { AnyDict } from "./hmlabtypes";
 
 export const LATER = "later";
@@ -37,6 +37,7 @@ export class LocusRelation {
         this.id = id;
     }
 }
+
 export type DroppedRelation = {
     locusRelation: LocusRelation,
     reason: number
@@ -110,7 +111,8 @@ export function apiResult2Relations(apiData: ApiResultLocusRelations, loci: Arra
                     break;
                 case "uid_locus_2_related":
                     locusRelation.uid_locus_related = apiRelation[fieldIdx];
-                    locusRelation.related_arch_context = loci.find((x) => x.uid === locusRelation.uid_locus_related).arch_context;
+                    const relatedLocus = loci.find((x) => x.uid === locusRelation.uid_locus_related);
+                    locusRelation.related_arch_context = relatedLocus ? relatedLocus.arch_context : "";
                     break;
                 case "chronology":
                     locusRelation.chronology = apiRelation[fieldIdx] ? apiRelation[fieldIdx].toLowerCase() : "";
@@ -199,22 +201,30 @@ export function api2HmNodes(relations: Array<LocusRelation>, loci: Array<Locus>,
             nodes.set(locusUID, node);
         }
 
-        if (chronType === LATER || chronType === SAME) {
-            const uidRelatedLocus: string = apiRecord.uid_locus_related;
-            if ((node.earlierNodes.findIndex(x => x === uidRelatedLocus) == -1) &&
-                (node.contemporaries.findIndex(x => x === uidRelatedLocus) == -1)) {
-                if (chronType === LATER) {
-                    node.earlierNodes.push(uidRelatedLocus);
-                } else {
-                    node.contemporaries.push(uidRelatedLocus);
-                }
-            } else {
-                console.log(`api2HmNodes: found another chronological relevant relation between ${node.name} and ${apiRecord.related_arch_context}: ${apiRecord.relation_type}`)
-                droppedRelations.push({locusRelation: apiRecord, reason: ERR_MULTIPLE});
-            }
-
+        if (apiRecord.related_arch_context === "") {
+            console.log(`api2HmNodes: ${node.name} has a relation to nowhere`);
+            droppedRelations.push({ locusRelation: apiRecord, reason: ERR_FAULTY });
         } else {
-            if (chronType === "") droppedRelations.push({locusRelation: apiRecord, reason: ERR_NON_TEMPORAL_RELATION});
+            if (chronType === LATER || chronType === SAME) {
+                const uidRelatedLocus: string = apiRecord.uid_locus_related;
+                if ((node.earlierNodes.findIndex(x => x === uidRelatedLocus) == -1) &&
+                    (node.contemporaries.findIndex(x => x === uidRelatedLocus) == -1)) {
+                    if (chronType === LATER) {
+                        node.earlierNodes.push(uidRelatedLocus);
+                    } else {
+                        node.contemporaries.push(uidRelatedLocus);
+                    }
+                } else {
+                    console.log(`api2HmNodes: found another chronological relevant relation between ${node.name} and ${apiRecord.related_arch_context}: ${apiRecord.relation_type}`);
+                    droppedRelations.push({ locusRelation: apiRecord, reason: ERR_MULTIPLE });
+                }
+
+            } else {
+                if (chronType === "") droppedRelations.push({
+                    locusRelation: apiRecord,
+                    reason: ERR_NON_TEMPORAL_RELATION,
+                });
+            }
         }
     }
     return nodes.values();
@@ -257,12 +267,15 @@ export function debugApi2HmNodes(relations: Array<LocusRelation>, loci: Array<Lo
                     node.contemporaries.push(uid2name(uidRelatedLocus));
                 }
             } else {
-                console.log(`api2HmNodes: found another chronological relevant relation between ${node.name} and ${apiRecord.related_arch_context}: ${apiRecord.relation_type}`)
-                droppedRelations.push({locusRelation: apiRecord, reason: ERR_MULTIPLE});
+                console.log(`api2HmNodes: found another chronological relevant relation between ${node.name} and ${apiRecord.related_arch_context}: ${apiRecord.relation_type}`);
+                droppedRelations.push({ locusRelation: apiRecord, reason: ERR_MULTIPLE });
             }
 
         } else {
-            if (chronType === "") droppedRelations.push({locusRelation: apiRecord, reason: ERR_NON_TEMPORAL_RELATION});
+            if (chronType === "") droppedRelations.push({
+                locusRelation: apiRecord,
+                reason: ERR_NON_TEMPORAL_RELATION,
+            });
         }
     }
     return nodes.values();
