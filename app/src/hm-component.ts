@@ -61,6 +61,9 @@ type AppMessage = {
     message: string
 }
 
+const AUTOZOOM_TOFIT = "zoomtofit"
+const AUTOZOOM_1TO1 = "1:1"
+
 @customElement("hm-component")
 export class HMComponent extends LitElement {
     static styles = unsafeCSS(local_css);
@@ -107,6 +110,8 @@ export class HMComponent extends LitElement {
     private fontHeight: number = 16; //That's just a falback value
     private inErrorState = false;
 
+    private resizeObserver: ResizeObserver;
+
     private wallSVGStr = `
         <svg xmlns="http://www.w3.org/2000/svg" xml:space="preserve" height="32px" width="32px" viewBox="0 0 503.326 503.326">
         <path d="M199.596 86.78h104.136v52.068H199.596zM381.834 156.203h121.492v52.068H381.834zM138.85 156.203h104.136v52.068H138.85zM321.088 225.627h104.136v52.068H321.088zM78.105 225.627h104.136v52.068H78.105zM199.596 225.627h104.136v52.068H199.596zM.003 156.203h121.492v52.068H.003zM.003 225.627h60.746v52.068H.003zM442.579 86.78h60.746v52.068h-60.746zM.003 364.475h60.746v52.068H.003zM.003 295.051h121.492v52.068H.003zM321.088 364.475h104.136v52.068H321.088zM381.834 295.051h121.492v52.068H381.834zM199.596 364.475h104.136v52.068H199.596zM260.342 295.051h104.136v52.068H260.342zM78.105 86.78h104.136v52.068H78.105zM503.323 8.682a8.676 8.676 0 0 0-8.678-8.678H381.832v69.424h121.492V8.682zM442.579 225.627h60.746v52.068h-60.746zM260.342 433.898h104.136v69.424H260.342zM121.493.004H8.679A8.676 8.676 0 0 0 .001 8.682v60.746h121.492V.004zM138.85 433.898h104.136v69.424H138.85zM381.832 503.326h112.814a8.676 8.676 0 0 0 8.678-8.678v-60.746H381.832v69.424zM.001 494.648a8.676 8.676 0 0 0 8.678 8.678h112.814v-69.424H.001v60.746zM442.579 364.475h60.746v52.068h-60.746zM138.85 295.051h104.136v52.068H138.85zM321.088 86.78h104.136v52.068H321.088zM260.342 156.203h104.136v52.068H260.342zM260.342 0h104.136v69.424H260.342zM.003 86.78h60.746v52.068H.003zM78.105 364.475h104.136v52.068H78.105zM138.85 0h104.136v69.424H138.85z"/>
@@ -126,6 +131,12 @@ export class HMComponent extends LitElement {
     hmNodes: Array<hmNode> | null = null;
 
     @property()
+    containerWidth: string;
+
+    @property()
+    containerHeight: string;
+
+    @property()
     showErrors = true;
 
     @property()
@@ -143,7 +154,11 @@ export class HMComponent extends LitElement {
     };
 
     @property()
-    selectedTag: string = ""
+    autozoom: string = ""
+
+    @property()
+    selectedTag: string = "";
+
 
     rows: Array<Array<HMEdge>> = [];
     edgeRowInfo: Array<RowLaneInfo> = [];
@@ -333,25 +348,25 @@ export class HMComponent extends LitElement {
     }
 
     _analyzeGraph() {
-        let startTime = Date.now()
-        const result = analyzeRelations(this.hmNodes)
+        let startTime = Date.now();
+        const result = analyzeRelations(this.hmNodes);
         for (let cycle of result.cycles) {
-            let logStr = ""
+            let logStr = "";
             for (let rel of cycle.originalCycle) {
-                logStr += `${findNode(this.hmNodes, rel).name} -> `
+                logStr += `${findNode(this.hmNodes, rel).name} -> `;
             }
-            console.log("solved cycle " + logStr)
+            console.log("solved cycle " + logStr);
         }
         for (let r of result.removed) {
-            console.log(`removed relation ${findNode(this.hmNodes, r[0]).name}<->${findNode(this.hmNodes, r[1]).name}`)
+            console.log(`removed relation ${findNode(this.hmNodes, r[0]).name}<->${findNode(this.hmNodes, r[1]).name}`);
         }
-        console.log("Analyze relations returned", result)
-        console.log(`Analyzing the relations took ${Date.now()-startTime} ms`)
-        return result
+        console.log("Analyze relations returned", result);
+        console.log(`Analyzing the relations took ${Date.now() - startTime} ms`);
+        return result;
     }
 
     public getAnalysisResults() {
-        return this._analysisResults
+        return this._analysisResults;
     }
 
     _buildHMNodesGraph() {
@@ -764,32 +779,32 @@ export class HMComponent extends LitElement {
     }
 
     _calculateMaxNodeWidth() {
-        let maxEdges = 0
-        let maxIdentifierWidth = 0
-        let maxWidth = this.nodeWidth
+        let maxEdges = 0;
+        let maxIdentifierWidth = 0;
+        let maxWidth = this.nodeWidth;
 
         const el: HTMLCanvasElement = <HTMLCanvasElement>this.shadowRoot?.getElementById("c");
-        const canvas = el.getContext("2d")
-        canvas.font = "16px" + this.cssFontFamily
+        const canvas = el.getContext("2d");
+        canvas.font = "16px " + this.cssFontFamily;
 
         this.hmNodes.forEach(n => {
-            const textMetrics = canvas.measureText(n.name + "QQQQ") // the QQ takes care of the locus type marker on the left of each node
+            const textMetrics = canvas.measureText(n.name + "QQQQ"); // the QQ takes care of the locus type marker on the left of each node
             if (textMetrics.width > maxIdentifierWidth) {
-                maxIdentifierWidth = textMetrics.width
+                maxIdentifierWidth = textMetrics.width;
             }
 
             if (!n.dummyNode) {
                 if (n.inEdges.length > maxEdges)
-                    maxEdges = n.inEdges.length
+                    maxEdges = n.inEdges.length;
                 if (n.outEdges.length > maxEdges)
-                    maxEdges = n.outEdges.length
+                    maxEdges = n.outEdges.length;
             }
-        })
+        });
 
-        const maxEdgesWidth = maxEdges * this.laneWidth + this.laneWidth
-        if (maxEdgesWidth > maxWidth) maxWidth = maxEdgesWidth
-        if (maxIdentifierWidth > maxWidth) maxWidth = maxIdentifierWidth
-        this.nodeWidth = maxWidth
+        const maxEdgesWidth = maxEdges * this.laneWidth + this.laneWidth;
+        if (maxEdgesWidth > maxWidth) maxWidth = maxEdgesWidth;
+        if (maxIdentifierWidth > maxWidth) maxWidth = maxIdentifierWidth;
+        this.nodeWidth = maxWidth;
 
     }
 
@@ -1021,6 +1036,9 @@ export class HMComponent extends LitElement {
         this.requestUpdate();
     }
 
+    public fullRepaint() {
+        this.requestUpdate("layout");
+    }
 
     updated(_changedProperties: any) {
         console.log("hm-component update", _changedProperties);
@@ -1038,19 +1056,19 @@ export class HMComponent extends LitElement {
         if (_changedProperties.has("hmNodes") && (this.hmNodes)) {
             this._tidyUp();
             try {
-                let result = this._analyzeGraph()
-                console.log("_analyzeGraph successful", result)
-                this._analysisResults = result
+                let result = this._analyzeGraph();
+                console.log("_analyzeGraph successful", result);
+                this._analysisResults = result;
                 if (result.errors.length > 0) {
-                    result.errors.forEach(e => this._issueError(e, true))
-                    return
+                    result.errors.forEach(e => this._issueError(e, true));
+                    return;
                 }
             } catch (e) {
                 this._issueError(`An error occurred when analyzing the stratigraphic relations: ${e as string}`, true);
             }
             try {
                 this._buildHMNodesGraph();
-            } catch(e) {
+            } catch (e) {
                 this._issueError(`An error occurred when building a matrix from the stratigraphic relations: ${e as string}`, true);
                 return;
             }
@@ -1058,10 +1076,9 @@ export class HMComponent extends LitElement {
         } else {
             if (_changedProperties.has("color") || _changedProperties.has("layout") || _changedProperties.has("selectedTag")) {
                 if (this.canvas) {
-                    this._prepareNodeSpecificColors();
-                    this._paintCanvas();
-                    this._paintGraph();
+                    this._createAndPaintCanvas();
                 }
+                // this.repaintScheduled = false;
             }
         }
         if (_changedProperties.has("dotNotation") && (this.dotNotation)) {
@@ -1098,9 +1115,7 @@ export class HMComponent extends LitElement {
                 this._calcContemporaries();
                 this.calcFinalMaxDimensions();
                 this._markStraightEdges();
-                this._prepareNodeSpecificColors();
-                this._paintCanvas();
-                this._paintGraph();
+                this._createAndPaintCanvas();
                 this._notifyUpdate();
             });
         }
@@ -1116,6 +1131,12 @@ export class HMComponent extends LitElement {
             }
         }
 
+    }
+
+    private _createAndPaintCanvas() {
+        this._prepareNodeSpecificColors();
+        this._paintCanvas();
+        this._paintGraph();
     }
 
     getPointX(x: number) {
@@ -1194,23 +1215,29 @@ export class HMComponent extends LitElement {
             return 0;
     }
 
-    zoomToFit() {
-        if (!this.canvas)
-            return;
+    _getZoomToFitRatio(allDimensions: Boolean) {
         let cs = window.getComputedStyle(this);
         let width = parseInt(cs.width);
         let height = parseInt(cs.height);
         if (Number.isNaN(width))
+            throw "(_getZoomToFitRatio) Can't get width from html element";
+        let ratio = allDimensions ? Math.min(width / this.canvas.width, height / this.canvas.height) : width / this.canvas.width;
+        // if (ratio < 1) {
+        let vpt = this.canvas.viewportTransform;
+        vpt[4] = 1;
+        vpt[5] = 1;
+        this.canvas.setViewportTransform(this.canvas.viewportTransform);
+        console.log("zoomToFit", ratio);
+        return ratio
+    }
+
+    zoomToFit(allDimensions = false) {
+        if (!this.canvas)
             return;
-        let ratio = Math.min(width / this.canvas.width, height / this.canvas.height);
-        ratio = width / this.canvas.width;
-        if (ratio < 1) {
-            let vpt = this.canvas.viewportTransform;
-            vpt[4] = 1;
-            vpt[5] = 1;
-            this.canvas.setViewportTransform(this.canvas.viewportTransform);
-            console.log("zoomToFit", ratio);
-            this.zoom(ratio);
+        try {
+            this.zoom(this._getZoomToFitRatio(allDimensions));
+        } catch (e) {
+            console.log(e)
         }
     }
 
@@ -1319,9 +1346,15 @@ export class HMComponent extends LitElement {
             this._disposeOfCanvas();
             this.selectedNode = undefined;
         }
-        let cs = window.getComputedStyle(this.parentElement);
-        this.parentWidth = parseInt(cs.width);
-        this.parentHeight = parseInt(cs.height);
+
+        if (this.containerWidth && this.containerHeight) {
+            this.parentWidth = parseInt(this.containerWidth);
+            this.parentHeight = parseInt(this.containerHeight);
+        } else {
+            let cs = window.getComputedStyle(this.parentElement);
+            this.parentWidth = parseInt(cs.width);
+            this.parentHeight = parseInt(cs.height);
+        }
 
         this.canvas = new fabric.Canvas(el, {
             backgroundColor: RGBAToHexA(this.backgroundColor),
@@ -1332,6 +1365,14 @@ export class HMComponent extends LitElement {
         if (oldviewportTransform)
             this.canvas.setViewportTransform(oldviewportTransform);
 
+        if (this.autozoom === AUTOZOOM_TOFIT) {
+            try {
+                let ratio = this._getZoomToFitRatio(true)
+                this.canvas.setZoom(ratio)
+            } catch(e) {
+                console.log("Error applying auto zoom:", e)
+            }
+        }
         this._registerCanvasEvents();
 
         let ctx = this.canvas.getContext();
@@ -1711,6 +1752,8 @@ export class HMComponent extends LitElement {
 
     _drawEdge(edge: HMEdge, colorRange: Array<string>, toFront = false) {
         let strokeWidth = 2;
+        if (!this.columnInfo[edge.sourceNode.pos.x - 1] || !this.columnInfo[edge.targetNode.pos.x - 1])
+            return;
         let start_x = this.columnInfo[edge.sourceNode.pos.x - 1].screenX + this.columnInfo[edge.sourceNode.pos.x - 1].width / 2;
         let start_y = this.rowInfo[edge.sourceNode.pos.y - 1].screenY + this.rowInfo[edge.sourceNode.pos.y - 1].height + 1;
         let dummy_start_y;
@@ -1961,23 +2004,23 @@ export class HMComponent extends LitElement {
 
 
     private _drawLocusNodeProper(group: Array<Object>, node: hmNode) {
-        let nodeColor = this.nodeColor
+        let nodeColor = this.nodeColor;
         let bwMode = this.layoutOption("displayMode", "lightMode") === "blackWhiteMode";
-        let nodeTextColor = RGBToHex(this.nodeTextColor)
-        let nodeColorBorder = RGBToHex(node != this.selectedNode ? this.nodeColorDarker : this.nodeColorAccent)
+        let nodeTextColor = RGBToHex(this.nodeTextColor);
+        let nodeColorBorder = RGBToHex(node != this.selectedNode ? this.nodeColorDarker : this.nodeColorAccent);
         if (!bwMode && this.selectedTag && node.tags.find(x => x === this.selectedTag)) {
-            nodeColor = this.nodeColorTagged
-            nodeTextColor = RGBToHex(this.nodeTextColorTagged)
-            const colorBorder = RGBAToHSL(nodeColor)
-            colorBorder[2] *= .8
-            nodeColorBorder = RGBToHex(HSLToRGB(colorBorder[0], colorBorder[1], colorBorder[2]))
+            nodeColor = this.nodeColorTagged;
+            nodeTextColor = RGBToHex(this.nodeTextColorTagged);
+            const colorBorder = RGBAToHSL(nodeColor);
+            colorBorder[2] *= .8;
+            nodeColorBorder = RGBToHex(HSLToRGB(colorBorder[0], colorBorder[1], colorBorder[2]));
         }
-        nodeTextColor = node === this.selectedNode ? RGBToHex(this.nodeAccentTextColor) : nodeTextColor
+        nodeTextColor = node === this.selectedNode ? RGBToHex(this.nodeAccentTextColor) : nodeTextColor;
 
         let nodeFill = RGBToHex(node != this.selectedNode ? nodeColor : this.nodeColorAccent);
         let locusType = node.locusType;
         let typeFill = this._getLocusTypeColor(locusType);
-        locusType = locusType?[...locusType.toUpperCase().substring(0, 2)].join("\n"):"?\n?"
+        locusType = locusType ? [...locusType.toUpperCase().substring(0, 2)].join("\n") : "?\n?";
         let showLocusStyles = this.layoutOption("locusTypeStyle", "") === "label";
 
         group.push(new fabric.Rect({
@@ -2004,16 +2047,16 @@ export class HMComponent extends LitElement {
         let text = new fabric.Textbox(node.name || node.id, {
             // left: origin[0],
             // top: origin[1],
-            left: showLocusStyles?30:2,
+            left: showLocusStyles ? 30 : 2,
             // top: this.nodeHeight * this.scale / 2 - this.fontHeight * this.scale / 2,
             top: 3,
             stroke: nodeTextColor,
             // originX: "center",
             // originY: "center",
             fontSize: 16,
-            textAlign: showLocusStyles?"left":"center",
+            textAlign: showLocusStyles ? "left" : "center",
             fontFamily: this.cssFontFamily,
-            width: showLocusStyles?this.nodeWidth - 30:this.nodeWidth-2,
+            width: showLocusStyles ? this.nodeWidth - 30 : this.nodeWidth - 2,
             height: this.nodeHeight * this.scale,
             selectable: false,
         });
@@ -2073,7 +2116,7 @@ export class HMComponent extends LitElement {
             fill: this.nodeColorAlert,
             stroke: this.nodeColorAlert,
             strokeWidth: 2,
-            width: size+1,
+            width: size + 1,
             height: size,
             selectable: false,
             rx: 5,
@@ -2082,17 +2125,17 @@ export class HMComponent extends LitElement {
         let diag = Math.sqrt(2 * size ** 2);
         group.push(new fabric.Polyline(
             [
-                {x: this.nodeWidth - size, y: 3},
-                {x:this.nodeWidth, y:size},
-                {x:this.nodeWidth - size/2, y:this.nodeHeight -2},
-                {x:this.nodeWidth - size * 2, y:3 },
-                {x: this.nodeWidth - size, y: 3}
-            ],{
-            fill: fill,
-            stroke: fill,
-            strokeWidth: 1,
-            selectable: false,
-        }));
+                { x: this.nodeWidth - size, y: 3 },
+                { x: this.nodeWidth, y: size },
+                { x: this.nodeWidth - size / 2, y: this.nodeHeight - 2 },
+                { x: this.nodeWidth - size * 2, y: 3 },
+                { x: this.nodeWidth - size, y: 3 },
+            ], {
+                fill: fill,
+                stroke: fill,
+                strokeWidth: 1,
+                selectable: false,
+            }));
         group.push(new fabric.Line([this.nodeWidth - size, 0, this.nodeWidth, size], {
             stroke: RGBToHex(node != this.selectedNode ? this.nodeColorDarker : this.nodeColorAccent),
             strokeWidth: 3,

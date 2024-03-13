@@ -69,7 +69,7 @@ if "mcpcore.mcpworker" not in sys.modules:
 
     def register_menus():
         global plugin
-        return [KioskMenuItem(name="Harris Matrix Lab",
+        return [KioskMenuItem(name="stratigraphy studio",
                               onclick="triggerModule('hmlab.hm_lab_show')",
                               endpoint="hmlab.hm_lab_show",
                               is_active=lambda: current_user.fulfills_requirement(

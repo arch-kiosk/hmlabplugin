@@ -93,6 +93,8 @@ export class HmLabApp extends KioskApp {
     @state()
     private showRelationsWithErrors: boolean = true;
     private locusRelationDepth: number = 1; // depth of relations if the requested identifier is a locus (instead of a unit)
+    private resizeObserver: ResizeObserver;
+    private resizeObserved: number = 0
 
 
     constructor() {
@@ -307,6 +309,20 @@ export class HmLabApp extends KioskApp {
                 const hm = this.renderRoot.querySelector("#hm");
                 // @ts-ignore
                 hm.hmNodes = this.hmNodes;
+                this.resizeObserved = 0
+
+                if (!this.resizeObserver) {
+                    this.resizeObserver = new ResizeObserver(() => {
+                        console.log("resize observed")
+                        if (this.hmNodes && this.hmNodes.length > 0) {
+                            this.resizeObserved++
+                            if (this.resizeObserved == 2) {
+                                setTimeout(this._repaintDueToResize.bind(this), 500)
+                            }
+                        }
+                    })
+                    this.resizeObserver.observe(this.parentElement)
+                }
             }
         }
     }
@@ -415,11 +431,19 @@ export class HmLabApp extends KioskApp {
         }
     }
 
-    zoomToFit(event: MouseEvent) {
+    zoomToFitWidth(event: MouseEvent) {
         let element = event.currentTarget as HTMLElement;
         if (!element.classList.contains("disabled")) {
             let hm: HMComponent = this.shadowRoot.querySelector("hm-component");
             hm.zoomToFit();
+        }
+    }
+
+    zoomToFit(event: MouseEvent) {
+        let element = event.currentTarget as HTMLElement;
+        if (!element.classList.contains("disabled")) {
+            let hm: HMComponent = this.shadowRoot.querySelector("hm-component");
+            hm.zoomToFit(true);
         }
     }
 
@@ -440,12 +464,16 @@ export class HmLabApp extends KioskApp {
 
         if (!element.classList.contains("disabled")) {
             this.showRelationsWithErrors = !this.showRelationsWithErrors
-            // if (!this.showRelationsWithErrors) {
-            //     this.moverActive = false;
-            //     this.arrowActive = true;
-            //     let hm: HMComponent = this.shadowRoot.querySelector("hm-component");
-            //     hm.mouseMode = 0
-            // }
+            let hm: HMComponent = this.shadowRoot.querySelector("hm-component");
+            hm.fullRepaint()
+        }
+    }
+
+    fullRepaint(e: MouseEvent) {
+        let element = e.currentTarget as HTMLElement;
+        if (!element.classList.contains("disabled")) {
+            let hm: HMComponent = this.shadowRoot.querySelector("hm-component");
+            hm.fullRepaint()
         }
     }
 
@@ -482,6 +510,11 @@ export class HmLabApp extends KioskApp {
     hmUpdated(event: CustomEvent) {
         console.log("hm updated");
         this.getHMComponentStatus();
+    }
+    private _repaintDueToResize() {
+        let hm: HMComponent = this.shadowRoot.querySelector("hm-component");
+        hm.fullRepaint()
+        this.resizeObserved = 1
     }
 
     protected renderTagDropdown() {
@@ -600,12 +633,60 @@ export class HmLabApp extends KioskApp {
                         <i class="fas fa-magnifying-glass-minus"></i>
                     </div>
                     <div class="toolbar-button ${!this.enableZoomControls ? `disabled` : ""}"
-                         @click="${this.zoomToFit}">
-                        <i class="fas fa-compress"></i>
+                         @click="${this.zoomToFitWidth}">
+                        <!--i class="fas fa-compress"></i-->
+                        <svg xmlns="http://www.w3.org/2000/svg" xmlns:bx="https://boxy-svg.com" width="48px" viewBox="0 20 128 128">
+                            <path d="m13.982 33.286-.355 61.427M115.944 33.286l-.355 61.427" style="stroke-width:6px"/>
+                            <path d="M28.895 63.468h69.949" style="paint-order:fill;stroke-width:6px"/>
+                            <path bx:shape="triangle 42.189 93.829 14.338 13.063 0.5 0 1@924b4f87"
+                                  d="m49.358 93.829 7.169 13.063H42.189l7.169-13.063Z"
+                                  style="paint-order:fill;transform-box:fill-box;transform-origin:50% 50%;stroke-width:6px"
+                                  transform="rotate(-90 -26.026 -10.644)"/>
+                            <path bx:shape="triangle 89.85 57.22 14.338 13.063 0.5 0 1@a7b9ae05"
+                                  d="m97.019 57.22 7.169 13.063H89.85l7.169-13.063Z"
+                                  style="paint-order:fill;stroke-width:6px;transform-origin:49.358px 100.361px"
+                                  transform="rotate(90 48.084 -36.373)"/>
+                        </svg>                        
                     </div>
                     <div class="toolbar-button ${!this.enableZoomControls ? `disabled` : ""}"
+                         @click="${this.zoomToFit}">
+                        <!--i class="fas fa-compress"></i-->
+                        <svg xmlns="http://www.w3.org/2000/svg" xmlns:bx="https://boxy-svg.com" width="42px" viewBox="0 10 128 128">
+                            <path d="m13.982 33.286-.355 61.427M115.944 33.286l-.355 61.427" style="stroke-width:6px"/>
+                            <path d="M28.895 63.468h69.949" style=";paint-order:fill;stroke-width:6px"/>
+                            <path bx:shape="triangle 42.189 93.829 14.338 13.063 0.5 0 1@924b4f87"
+                                  d="m49.358 93.829 7.169 13.063H42.189l7.169-13.063Z"
+                                  style="paint-order:fill;stroke-width:6px;transform-box:fill-box;transform-origin:50% 50%"
+                                  transform="rotate(-90 -26.026 -10.644)"/>
+                            <path bx:shape="triangle 89.85 57.22 14.338 13.063 0.5 0 1@a7b9ae05"
+                                  d="m97.019 57.22 7.169 13.063H89.85l7.169-13.063Z"
+                                  style="paint-order:fill;stroke-width:6px;transform-origin:49.358px 100.361px"
+                                  transform="rotate(90 48.084 -36.373)"/>
+                            <path d="M34.245 62.033H97.09"
+                                  style="paint-order:fill;stroke-width:6px;transform-box:fill-box;transform-origin:50% 50%"
+                                  transform="rotate(-90 0 0)"/>
+                            <path bx:shape="triangle 58.657 82.711 14.338 13.063 0.5 0 1@cd9d82d6"
+                                  d="m65.826 82.711 7.169 13.063H58.657l7.169-13.063Z"
+                                  style="paint-order:fill;stroke-width:6px;transform-box:fill-box;transform-origin:50% 50%"
+                                  transform="rotate(180)"/>
+                            <path bx:shape="triangle 58.596 31.245 14.338 13.063 0.5 0 1@cccc861b"
+                                  d="m65.765 31.245 7.169 13.063H58.596l7.169-13.063Z"
+                                  style="paint-order:fill;stroke-width:6px;transform-origin:49.358px 100.361px"/>
+                            <path d="m65.941-11.545-.355 61.427"
+                                  style="stroke-width:6px;transform-box:fill-box;transform-origin:50% 50%"
+                                  transform="rotate(-90 0 0)"/>
+                            <path d="m65.941 76.455-.355 61.427"
+                                  style="stroke-width:6px;transform-origin:65.764px 107.169px"
+                                  transform="rotate(-90 0 0)"/>
+                        </svg>                    </div>
+                    <div class="toolbar-button ${!this.enableZoomControls ? `disabled` : ""}"
                          @click="${this.backToOriginal}">
-                        <i class="fas fa-expand"></i>
+                        <!--i class="fas fa-expand"></i-->
+                        <svg xmlns="http://www.w3.org/2000/svg" width="48px" viewBox="16 20 128 128"><text x="17.888" y="78.786" style="font-family:monospace;font-size:43.3437px;white-space:pre" transform="matrix(1.25851 0 0 1.47657 -2.628 -34.285)">1:1</text></svg>                        
+                    </div>
+                    <div class="toolbar-button ${!this.enableZoomControls ? `disabled` : ""}"
+                         @click="${this.fullRepaint}">
+                        <i class="fas fa-reload"></i>
                     </div>
                 </div>
                 <div></div>
@@ -650,7 +731,7 @@ export class HmLabApp extends KioskApp {
         const hasDroppedRelations = this.droppedLocusRelations && this.droppedLocusRelations.length > 0
 
         return html`
-            <div class="horizontal-frame ${(this.showRelationsWithErrors && (hasRelationsWithErrors || hasDroppedRelations))?'hf-2-cols':''}">
+            <div id="matrixContainer" class="horizontal-frame ${(this.showRelationsWithErrors && (hasRelationsWithErrors || hasDroppedRelations))?'hf-2-cols':''}">
                 ${(this.showRelationsWithErrors && (hasRelationsWithErrors || hasDroppedRelations))?html`
                     <div class="removed-relations">
                         ${hasRelationsWithErrors?html`
