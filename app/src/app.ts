@@ -31,7 +31,7 @@ import "@shoelace-style/shoelace/dist/components/icon/icon.js";
 import "@shoelace-style/shoelace/dist/components/divider/divider.js";
 import { setBasePath } from "@shoelace-style/shoelace/dist/utilities/base-path.js";
 import { SlMenuItem } from "@shoelace-style/shoelace";
-import { KioskContextSelector } from "kioskuicomponents/kioskuicomponents";
+import { KioskContextSelector } from "kioskuicomponents";
 import { AnyDict, Constant, fetchConstants, getRecordTypeAliases } from "kiosktsapplib";
 import { sendMessage } from "./lib/appmessaging";
 

@@ -10,6 +10,7 @@ export const ERR_CYCLE = 2
 export const ERR_NON_TEMPORAL_RELATION = 3
 export const ERR_MULTIPLE = 4
 export const ERR_FAULTY = 5
+export const ERR_MISSING_REVERSE = 6
 
 export type Point = {
     x: number
@@ -301,23 +302,41 @@ export function analyzeRelations(nodes: Array<hmNode>) {
         const earlier = [...node.earlierNodes];
         earlier.forEach(toNodeId => {
             const toNode = findNode(nodes, toNodeId);
-            if (toNode.earlierNodes.find(fromNodeId => fromNodeId === node.id)) {
-                addRemovedRelation(result.removed, [node.id, toNode.id, ERR_CONTRADICTION]);
-                addRemovedRelation(result.removed, [toNode.id, node.id, ERR_CONTRADICTION]);
-                if (removeEdge(nodes, node.id, toNode.id)) result.removed.push([node.id, toNode.id, ERR_CONTRADICTION]);
-                if (removeEdge(nodes, toNode.id, node.id)) result.removed.push([toNode.id, node.id, ERR_CONTRADICTION]);
-            }
-            if (toNode.contemporaries.find(fromNodeId => fromNodeId === node.id)) {
-                addRemovedRelation(result.removed, [toNode.id, node.id, ERR_CONTRADICTION]);
-                if (removeEdge(nodes, toNode.id, node.id, true)) result.removed.push([toNode.id, node.id, ERR_CONTRADICTION]);
+            if (!toNode) {
+                console.log(`node ${node.id}/${node.name} has an earlier relation to missing ${toNodeId}`);
+                if (removeEdge(nodes, node.id, toNodeId)) {
+                    result.removed.push([node.id, toNodeId, ERR_FAULTY]);
+                    console.log(`node ${node.id}/${node.name} dropped earlier relation to missing ${toNodeId}`);
+                    addRemovedRelation(result.removed, [node.id, toNodeId, ERR_FAULTY]);
+                }
+            } else {
+                if (toNode.earlierNodes.find(fromNodeId => fromNodeId === node.id)) {
+                    addRemovedRelation(result.removed, [node.id, toNode.id, ERR_CONTRADICTION]);
+                    addRemovedRelation(result.removed, [toNode.id, node.id, ERR_CONTRADICTION]);
+                    if (removeEdge(nodes, node.id, toNode.id)) result.removed.push([node.id, toNode.id, ERR_CONTRADICTION]);
+                    if (removeEdge(nodes, toNode.id, node.id)) result.removed.push([toNode.id, node.id, ERR_CONTRADICTION]);
+                }
+                if (toNode.contemporaries.find(fromNodeId => fromNodeId === node.id)) {
+                    addRemovedRelation(result.removed, [toNode.id, node.id, ERR_CONTRADICTION]);
+                    if (removeEdge(nodes, toNode.id, node.id, true)) result.removed.push([toNode.id, node.id, ERR_CONTRADICTION]);
+                }
             }
         });
         const contemporaries = [...node.contemporaries];
         contemporaries.forEach(toNodeId => {
             const toNode = findNode(nodes, toNodeId);
-            if (toNode.earlierNodes.find(fromNodeId => fromNodeId === node.id)) {
-                addRemovedRelation(result.removed, [toNode.id, node.id, ERR_CONTRADICTION]);
-                if (removeEdge(nodes, node.id, toNode.id, true)) result.removed.push([node.id, toNode.id, ERR_CONTRADICTION]);
+            if (!toNode) {
+                console.log(`node ${node.id}/${node.name} has a contemporary relation to missing ${toNodeId}`);
+                if (removeEdge(nodes, node.id, toNodeId)) {
+                    result.removed.push([node.id, toNodeId, ERR_FAULTY]);
+                    console.log(`node ${node.id}/${node.name} dropped contemporary relation to missing ${toNodeId}`);
+                    addRemovedRelation(result.removed, [node.id, toNodeId, ERR_FAULTY]);
+                }
+            } else {
+                if (toNode.earlierNodes.find(fromNodeId => fromNodeId === node.id)) {
+                    addRemovedRelation(result.removed, [toNode.id, node.id, ERR_CONTRADICTION]);
+                    if (removeEdge(nodes, node.id, toNode.id, true)) result.removed.push([node.id, toNode.id, ERR_CONTRADICTION]);
+                }
             }
         });
     });

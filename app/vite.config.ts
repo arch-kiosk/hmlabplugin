@@ -8,7 +8,12 @@ export default defineConfig(({ command, mode }) => {
     const env = loadEnv(mode, "env");
     return {
         plugins: [
-            createHtmlPlugin(),
+            createHtmlPlugin({
+                inject: {
+                    ...env,
+                },
+
+            }),
             // copy({
             //   targets: [ { src: '../../kioskfilemakerworkstationplugin/static/kioskfilemakerworkstation.css',
             //     dest:'./kioskfilemakerworkstation/static'
@@ -48,9 +53,6 @@ export default defineConfig(({ command, mode }) => {
         },
         publicDir: "/static",
         html: {
-            injectData: {
-                ...env,
-            },
         },
         define: {
             'import.meta.env.PACKAGE_VERSION': JSON.stringify(packageJson.version)
