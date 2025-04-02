@@ -2311,13 +2311,17 @@ export class HMComponent extends LitElement {
     private getMousePosFromEvent(e: MouseEvent | TouchEvent) {
         let mousePos: {clientX: number, clientY: number}
         try {
+            try {
+                // a bit strange around here because not all Browsers support TouchEvent
+                if (e instanceof TouchEvent) {
+                    return { clientX: e.touches[0].clientX, clientY: e.touches[0].clientY }
+                }
+            } catch {}
             if (e instanceof MouseEvent) {
                 mousePos = { clientX: e.clientX, clientY: e.clientY }
             }
-            if (e instanceof TouchEvent) {
-                mousePos = { clientX: e.touches[0].clientX, clientY: e.touches[0].clientY }
-            }
-        } catch {
+        } catch (e) {
+            console.log("exception", e)
             mousePos= undefined
         }
         return mousePos
