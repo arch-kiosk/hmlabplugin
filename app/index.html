@@ -13,7 +13,7 @@
             <% if ( VITE_MODE == "DEVELOPMENT") { %>
         <!--        This section is to load things in the development environment
                     that are naturally available in the kiosk environment -->
-        <% } %>
+            <% } %>
         <style>
             header {
                 background: lightgrey;
@@ -30,6 +30,9 @@
 
     <hmlab-app id="kiosk-app" showprogress="true"></hmlab-app>
     </body>
+    <script type="module">
+        import "@arch-kiosk/kioskuicomponents"
+    </script>
     <script type="module" src="/src/app.ts"></script>
     <script type="module" src="/kioskdevstarter.ts"></script>
     <script>

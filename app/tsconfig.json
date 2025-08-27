@@ -11,11 +11,9 @@
     "resolveJsonModule": true,
     "experimentalDecorators": true,
     "allowSyntheticDefaultImports": true,
-//    "paths": {"kiosktsapplib": ["./node_modules/kiosktsapplib"]},
-//    "typeRoots": [
-//      "./node_modules/@types",
-//      "./types/common"
-//    ]
+    "noEmit": true,
+    "plugins": [{ "name": "vite-plugin-iso-import" }]
+
   },
-  "exclude": ["node_modules", "old"]
+  "exclude": ["node_modules", "old", "@shoelace-style"]
 }

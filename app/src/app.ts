@@ -4,7 +4,7 @@ import { html, literal } from "lit/static-html.js";
 import { provide } from "@lit-labs/context";
 import { property, state } from "lit/decorators.js";
 import "./hm-component";
-import "kioskuicomponents"
+// import "@arch-kiosk/kioskuicomponents?development"
 
 // import { SlDropdown } from "@shoelace-style/shoelace";
 
@@ -31,8 +31,8 @@ import "@shoelace-style/shoelace/dist/components/icon/icon.js";
 import "@shoelace-style/shoelace/dist/components/divider/divider.js";
 import { setBasePath } from "@shoelace-style/shoelace/dist/utilities/base-path.js";
 import { SlMenuItem } from "@shoelace-style/shoelace";
-import { KioskContextSelector } from "kioskuicomponents";
-import { AnyDict, Constant, fetchConstants, getRecordTypeAliases } from "kiosktsapplib";
+import { KioskContextSelector } from "@arch-kiosk/kioskuicomponents";
+import { AnyDict, Constant, fetchConstants, getRecordTypeAliases } from "@arch-kiosk/kiosktsapplib";
 import { sendMessage } from "./lib/appmessaging";
 
 setBasePath("/static/sl_assets");

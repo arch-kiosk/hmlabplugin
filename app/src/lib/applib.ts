@@ -218,7 +218,8 @@ export function getCSSVar(varName1: string, element?: Element, varName2?: string
 export function getCSSVarColor(varName1: string, element?: HTMLElement, varName2?: string): RGBAColor {
     let v = getCSSVar(varName1, element, varName2);
 
-    return v ? rgba(v) : undefined;
+    const rgba_value: RGBAColor | [] = v ? rgba(v) : []
+    return rgba_value && rgba_value.length === 4 ? rgba_value : undefined;
 }
 
 export function RGBToHSB(r: number, g: number, b: number) {

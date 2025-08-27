@@ -40,9 +40,9 @@ export default defineConfig(({ command, mode }) => {
                 entry: "src/app.ts",
                 formats: ["es"],
             },
-            // rollupOptions: {
-            //   external: ['@vaading'],
-            // },
+            rollupOptions: {
+              "external": (id) => id.match(/kioskuicomponents/gmi)
+            },
         },
         server: {
             fs: {
