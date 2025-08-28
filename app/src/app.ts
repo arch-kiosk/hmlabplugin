@@ -4,9 +4,6 @@ import { html, literal } from "lit/static-html.js";
 import { provide } from "@lit-labs/context";
 import { property, state } from "lit/decorators.js";
 import "./hm-component";
-// import "@arch-kiosk/kioskuicomponents?development"
-
-// import { SlDropdown } from "@shoelace-style/shoelace";
 
 // @ts-ignore
 import local_css from "./styles/component-hmlab.sass?inline";

@@ -41,7 +41,8 @@ export default defineConfig(({ command, mode }) => {
                 formats: ["es"],
             },
             rollupOptions: {
-              "external": (id) => id.match(/kioskuicomponents/gmi)
+              // "external": (id) => id.match(/kioskuicomponents/gmi)
+                "external": ["@arch-kiosk/kioskuicomponents"]
             },
         },
         server: {

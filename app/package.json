@@ -29,8 +29,8 @@
     "build": "vite build --emptyOutDir"
   },
   "dependencies": {
-    "@arch-kiosk/kiosktsapplib": "file:/notebook_source/kiosk/kiosktsapplib/dist/arch-kiosk-kiosktsapplib-0.2.4.tgz",
-    "@arch-kiosk/kioskuicomponents": "file:/notebook_source/kiosk/kioskuicomponents/dist/arch-kiosk-kioskuicomponents-0.4.1.tgz",
+    "@arch-kiosk/kiosktsapplib": "^0.2.5",
+    "@arch-kiosk/kioskuicomponents": "^0.4.1",
     "@lit-labs/context": "^0.5.1",
     "@shoelace-style/shoelace": "^2.20.1",
     "@vaadin/grid": "^24.3.11",
