@@ -14,19 +14,7 @@ export default defineConfig(({ command, mode }) => {
                 },
 
             }),
-            // copy({
-            //   targets: [ { src: '../../kioskfilemakerworkstationplugin/static/kioskfilemakerworkstation.css',
-            //     dest:'./kioskfilemakerworkstation/static'
-            //   }, {
-            //     src: '../../kioskfilemakerworkstationplugin/static/scripts',
-            //     dest:'./kioskfilemakerworkstation/static'
-            //   }],
-            //   hook: 'buildStart'
-            // }),
         ],
-        // optimizeDeps: {
-        //     include: ['../../../../../../kiosktsapplib'],
-        // },
         esbuild:
             command == "build"
                 ? {
@@ -41,7 +29,6 @@ export default defineConfig(({ command, mode }) => {
                 formats: ["es"],
             },
             rollupOptions: {
-              // "external": (id) => id.match(/kioskuicomponents/gmi)
                 "external": ["@arch-kiosk/kioskuicomponents"]
             },
         },
@@ -49,7 +36,6 @@ export default defineConfig(({ command, mode }) => {
             fs: {
                 strict: true,
                 host: true,
-                allow: [searchForWorkspaceRoot(process.cwd()), "../../../static/scripts/kioskapplib"],
             },
         },
         publicDir: "/static",
