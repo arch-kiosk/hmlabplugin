@@ -12,8 +12,8 @@
     "experimentalDecorators": true,
     "allowSyntheticDefaultImports": true,
     "noEmit": true,
-    "plugins": [{ "name": "vite-plugin-iso-import" }]
-
+    "plugins": [{ "name": "vite-plugin-iso-import" }],
+    "types": ["vite/client"]
   },
   "exclude": ["node_modules", "old", "@shoelace-style"]
 }

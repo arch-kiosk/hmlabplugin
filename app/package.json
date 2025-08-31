@@ -2,7 +2,7 @@
   "name": "hmlabapp",
   "description": "Kiosk Harris Matrix Lab",
   "private": true,
-  "version": "0.18",
+  "version": "0.18.1",
   "type": "module",
   "main": "dist/hmlabapp.es.js",
   "exports": {
@@ -29,7 +29,7 @@
     "build": "vite build --emptyOutDir"
   },
   "dependencies": {
-    "@arch-kiosk/kiosktsapplib": "^0.2.5",
+    "@arch-kiosk/kiosktsapplib": "^0.3.0",
     "@arch-kiosk/kioskuicomponents": "^0.4.1",
     "@lit-labs/context": "^0.5.1",
     "@shoelace-style/shoelace": "^2.20.1",

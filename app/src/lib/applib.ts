@@ -1,6 +1,4 @@
-//@ts-ignore
-import { FetchException } from "../../../../../static/scripts/kioskapputils.js";
-//@ts-ignore
+import { FetchException } from "@arch-kiosk/kiosktsapplib";
 import { MessageData, MSG_NETWORK_ERROR, MSG_LOGGED_OUT, sendMessage } from "./appmessaging";
 import { LitElement } from "lit-element";
 import { DateTime } from "luxon";

@@ -1,4 +1,4 @@
-import { KioskApp } from "../kioskapplib/kioskapp";
+import { KioskApp } from "@arch-kiosk/kiosktsapplib";
 import { nothing, PropertyValues, unsafeCSS } from "lit";
 import { html, literal } from "lit/static-html.js";
 import { provide } from "@lit-labs/context";
@@ -9,7 +9,7 @@ import "./hm-component";
 import local_css from "./styles/component-hmlab.sass?inline";
 import { ApiLocusRelationsParameter } from "./lib/hmlabtypes";
 import { getCSSVar, handleCommonFetchErrors } from "./lib/applib";
-import { FetchException } from "../kioskapplib/kioskapi";
+import { FetchException } from "@arch-kiosk/kiosktsapplib";
 import {
     api2HmNodes,
     apiResult2Loci,
