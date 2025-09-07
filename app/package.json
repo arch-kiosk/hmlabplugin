@@ -13,7 +13,7 @@
     "dist",
     "types"
   ],
-  "keywords": [],
+  "keywords": ["kiosk", "archaeology", "field recoring", "harris matrix"],
   "author": "Lutz Klein",
   "license": "AGPL-3.0",
   "prettier": {
