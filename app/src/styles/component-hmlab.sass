@@ -1,0 +1,214 @@
+@import "../../../../../static/styles/_constants"
+
+@import reset
+@import icons
+
+\:host
+  display: grid
+  grid-template-rows: auto 1fr
+  grid-template-columns: 100%
+  max-height: 100%
+  overflow: hidden
+
+div, p
+  font-family: $standard-text
+
+.dev-tool-bar
+  background-color: $col-bg-att
+  display: flex
+  flex-direction: row
+  align-items: center
+  height: 38px
+  padding-left: 1em
+  & > label:first-child
+    display: block
+    width: auto
+    white-space: nowrap
+  button
+    margin: 0px .5rem
+    width: 40px
+    height: 32px
+    font-size: 12px
+    font-weight: normal
+  i
+    font-size: 28px
+.dev-open-identifier
+  display: inline-block
+  padding: 0 1em
+  margin: 0 5px
+  background-color: $col-bg-att-darker
+  &:hover
+    background-color: $col-bg-att-lighter
+  &:active
+    background-color: $col-bg-ack
+.dev-open-identifier-input
+  max-width: 10em
+
+.center-div
+  display: flex
+  flex-direction: column
+  align-items: center
+  background: $col-bg-body
+
+.wait-for-login
+  display: grid
+  place-items: center
+  height: 100vh
+  background-color: $col-bg-body
+
+  p
+    font-family: $headline-text
+    font-size: $font-size-h2
+
+.logged-in-message
+  background-color: $col-bg-ack
+  color: $col-primary-bg-ack
+  display: grid
+  place-items: center
+  font-family: $standard-text
+
+.development
+  background-color: darkred
+  color: white
+  font-family: "Courier New", sans-serif
+  font-size: 18px
+  text-align: center
+
+.toolbar
+  height: 3em
+  background: $col-bg-3
+  display: flex
+  flex-direction: row
+  justify-content: space-between
+  padding: 0
+
+.toolbar-section
+  height: 100%
+  display: flex
+  flex-direction: row
+  align-items: center
+  padding-left: 1em
+
+#toolbar-left
+  @extend .toolbar-section
+  flex-grow: 1
+  border-right: 1px solid $col-bg-body
+.toolbar-buttons
+  @extend .toolbar-section
+  background-color: $col-bg-3-darker
+
+.splitter
+  height: 8px
+  background-color: $col-bg-body
+
+.toolbar-button
+  color: $col-primary-bg-3
+  height: 28px
+  border: None
+  padding-right: 5px
+  svg
+    fill: $col-primary-bg-3
+    stroke: $col-primary-bg-3
+
+  svg:hover
+    fill: $col-accent-bg-3
+    stroke: $col-accent-bg-3
+  svg:active
+    fill: $col-success-bg-3
+    stroke: $col-success-bg-3
+
+.toolbar-button-red
+  color: $col-error-bg-3
+  i
+    padding: 0px 2px
+    border-radius: 2px
+
+.toolbar-button.selected
+    //background-color: $col-bg-3-lighter
+    color: $col-accent-bg-3
+
+.toolbar-button-red.selected
+  color: $col-error-bg-3
+  i
+    background-color: $col-bg-3-lighter
+    border-left: 1px solid rgba(0,0,0,.2)
+    border-top: 1px solid rgba(0,0,0,.2)
+
+.text-gradient
+  background-image: linear-gradient(90deg, rgb(0, 81, 175) 0%, rgb(217, 4, 4) 50%, rgb(250, 218, 27) 100%)
+  background-clip: text
+  background-size: 100%
+  -webkit-text-fill-color: transparent
+.suffix-width
+  display: inline-block
+  width: 32px
+
+.footstep-toolbar-button
+  height: 22px
+  i
+    font-size: 22px
+
+sl-button.sl-bt-toolbar::part(base)
+  background-color: $col-bg-3-lighter
+  border-color: $col-bg-3-darker
+  font-size: $font-size-button
+  line-height: 32px
+  height: 34px
+  &:hover
+    background-color: $col-bg-att
+  &:active
+    background-color: $col-bg-ack
+
+.hm-frame
+  max-width: 100%
+  padding: .5em
+  overflow: hidden
+  hm-component
+    margin-left: auto
+    margin-right: auto
+    overflow: hidden
+
+
+.uicomponent-version
+  position: absolute
+  //transform: translateX(-40px)
+  background-color: rgba(0,150,0,.4)
+  color: white
+  font-family: $standard-text
+  padding: .2em .5em
+  left: auto
+  right: 0px
+  z-index: 10
+  box-shadow: rgba(0, 0, 0, 0.24) 0px 3px 8px
+
+.horizontal-frame
+  display: grid
+  height: 100%
+  grid-template-columns: auto
+  overflow-y: auto
+.hf-2-cols
+  grid-template-columns: 20em 1fr
+
+
+
+.removed-relations
+  position: relative
+  background-color: $col-bg-1
+  border: 3px solid $col-bg-1-darker
+  padding: 3px
+  color: $col-primary-bg-1
+  overflow-y: auto
+  height: 100%
+.removed-relation-header
+  color: $col-accent-bg-1
+  background-color: $col-bg-1-lighter
+  margin-bottom: 20px
+  font-family: $monospace
+  position: sticky
+  top: 0px
+.removed-relation
+  border-bottom: 2px solid $col-bg-1-darker
+  i
+    color: $col-error-bg-1
+    display: inline-block
+    margin-right: .5em

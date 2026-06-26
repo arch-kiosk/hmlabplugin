@@ -1,0 +1,60 @@
+@import "component-constants"
+
+@import reset
+@import icons
+
+\:host
+  box-sizing: border-box
+  display: block
+  outline: none
+  border: none
+  height: 100%
+
+
+//  &:focus
+//    outline: none
+//    border: none
+//canvas
+//  outline: none
+//  border: none
+//  &:active
+//    border: none
+//    outline: none
+h1
+  font-family: monospace
+
+.adjacent
+  display: flex
+  flex-direction: row
+  background-color: unset
+.svg-div
+  //width: 50vw
+  position: relative
+canvas
+  position: relative
+
+.messages-frame
+  display: flex
+  flex-direction: column
+  min-width: 400px
+.message
+  display: flex
+  padding: 1em
+  border-radius: 5px
+  i
+    font-size: $font-size-h3
+    margin-right: 1em
+.message-info
+  @extend .message
+  background-color: $col-bg-att
+  color: $col-primary-bg-att
+  max-width: 500px
+  i
+    color: $col-accent-bg-att
+.message-error
+  @extend .message
+  background-color: $col-bg-alert
+  color: $col-primary-bg-alert
+  i
+    color: $col-accent-bg-alert
+

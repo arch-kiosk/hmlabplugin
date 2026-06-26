@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "sourceMap": true,
+    "outDir": "./dist/",
+    "noImplicitAny": true,
+    "module": "es2020",
+    "target": "es2020",
+//    "jsx": "react",
+    "allowJs": true,
+    "moduleResolution": "Bundler",
+    "resolveJsonModule": true,
+    "experimentalDecorators": true,
+    "allowSyntheticDefaultImports": true,
+    "noEmit": true,
+    "plugins": [{ "name": "vite-plugin-iso-import" }],
+    "types": ["vite/client"]
+  },
+  "exclude": ["node_modules", "old", "@shoelace-style"]
+}
